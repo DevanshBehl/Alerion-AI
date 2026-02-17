@@ -1,0 +1,44 @@
+{
+  "feature_cols": [
+    "Air temperature [K]",
+    "Process temperature [K]",
+    "Rotational speed [rpm]",
+    "Torque [Nm]",
+    "Tool wear [min]",
+    "type_encoded",
+    "temp_diff",
+    "power_W",
+    "torque_x_wear",
+    "rpm_per_torque"
+  ],
+  "target_col": "Failure Type",
+  "classes": [
+    "Heat Dissipation Failure",
+    "No Failure",
+    "Overstrain Failure",
+    "Power Failure",
+    "Random Failures",
+    "Tool Wear Failure"
+  ],
+  "class_mapping": {
+    "0": "Heat Dissipation Failure",
+    "1": "No Failure",
+    "2": "Overstrain Failure",
+    "3": "Power Failure",
+    "4": "Random Failures",
+    "5": "Tool Wear Failure"
+  },
+  "best_model": "Random Forest",
+  "model_metrics": {
+    "Random Forest": {
+      "accuracy": 0.979,
+      "macro_f1": 0.6526,
+      "weighted_f1": 0.9825
+    },
+    "XGBoost": {
+      "accuracy": 0.9805,
+      "macro_f1": 0.6451,
+      "weighted_f1": 0.9828
+    }
+  }
+}
