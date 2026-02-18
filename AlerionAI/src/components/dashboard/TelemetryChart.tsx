@@ -9,22 +9,25 @@ import {
     ResponsiveContainer,
 } from 'recharts';
 import { useTelemetry, useMachineTelemetry } from '../../hooks/useTelemetry';
-import { CHART_COLORS } from '../../utils/constants';
+import { CHART_COLORS, METRIC_UNITS } from '../../utils/constants';
 import { motion } from 'framer-motion';
-import { Thermometer, Activity, Zap } from 'lucide-react';
+import { Thermometer, Gauge, RotateCcw, Hammer, Cog, Activity } from 'lucide-react';
+import type { TelemetryMetric } from '../../types';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+        const metricName = payload[0].name as string;
+        const unit = METRIC_UNITS[metricName] || '';
         return (
             <div className="bg-black/80 border border-white/20 p-3 rounded-lg shadow-xl backdrop-blur-md">
                 <p className="text-white/50 text-xs font-mono mb-1">
                     {new Date(label).toLocaleTimeString()}
                 </p>
                 <p className="text-white font-bold text-lg">
-                    {payload[0].value}
-                    <span className="text-sm font-normal text-white/50 ml-1">
-                        {payload[0].name === 'temperature' ? '°C' : payload[0].name === 'pressure' ? 'PSI' : 'Hz'}
-                    </span>
+                    {typeof payload[0].value === 'number'
+                        ? payload[0].value.toFixed(2)
+                        : payload[0].value}
+                    <span className="text-sm font-normal text-white/50 ml-1">{unit}</span>
                 </p>
             </div>
         );
@@ -32,15 +35,20 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
+const metrics: { id: TelemetryMetric; label: string; icon: typeof Thermometer; color: string }[] = [
+    { id: 'air_temperature', label: 'Air Temp', icon: Thermometer, color: CHART_COLORS.air_temperature },
+    { id: 'process_temperature', label: 'Proc Temp', icon: Gauge, color: CHART_COLORS.process_temperature },
+    { id: 'rotational_speed', label: 'RPM', icon: RotateCcw, color: CHART_COLORS.rotational_speed },
+    { id: 'torque', label: 'Torque', icon: Hammer, color: CHART_COLORS.torque },
+    { id: 'tool_wear', label: 'Tool Wear', icon: Cog, color: CHART_COLORS.tool_wear },
+    { id: 'anomalyScore', label: 'Anomaly', icon: Activity, color: CHART_COLORS.anomalyScore },
+];
+
 export const TelemetryChart = () => {
     const { selectedMetric, setSelectedMetric, selectedMachineId } = useTelemetry();
     const data = useMachineTelemetry(selectedMachineId);
 
-    const metrics = [
-        { id: 'temperature', label: 'Temperature', icon: Thermometer, color: CHART_COLORS.temperature },
-        { id: 'vibration', label: 'Vibration', icon: Activity, color: CHART_COLORS.vibration },
-        { id: 'pressure', label: 'Pressure', icon: Zap, color: CHART_COLORS.pressure },
-    ] as const;
+    const currentMetric = metrics.find(m => m.id === selectedMetric) || metrics[0];
 
     if (!selectedMachineId) {
         return (
@@ -57,16 +65,21 @@ export const TelemetryChart = () => {
                     <h3 className="text-lg font-semibold text-white">Live Telemetry</h3>
                     <p className="text-xs text-white/40 font-mono mt-1">
                         Machine ID: <span className="text-blue-400">{selectedMachineId}</span>
+                        {data.length > 0 && (
+                            <span className="ml-3">
+                                Points: <span className="text-emerald-400">{data.length}</span>
+                            </span>
+                        )}
                     </p>
                 </div>
 
-                <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
+                <div className="flex bg-black/40 p-1 rounded-lg border border-white/5 flex-wrap gap-0.5">
                     {metrics.map((m) => (
                         <button
                             key={m.id}
                             onClick={() => setSelectedMetric(m.id)}
                             className={`
-                                relative px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2
+                                relative px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5
                                 ${selectedMetric === m.id ? 'text-white' : 'text-white/40 hover:text-white/70'}
                             `}
                         >
@@ -78,8 +91,8 @@ export const TelemetryChart = () => {
                                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                                 />
                             )}
-                            <span className="relative z-10 flex items-center gap-2">
-                                <m.icon size={14} />
+                            <span className="relative z-10 flex items-center gap-1.5">
+                                <m.icon size={12} />
                                 {m.label}
                             </span>
                         </button>
@@ -92,8 +105,8 @@ export const TelemetryChart = () => {
                     <AreaChart data={data}>
                         <defs>
                             <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={CHART_COLORS[selectedMetric]} stopOpacity={0.3} />
-                                <stop offset="95%" stopColor={CHART_COLORS[selectedMetric]} stopOpacity={0} />
+                                <stop offset="5%" stopColor={currentMetric.color} stopOpacity={0.3} />
+                                <stop offset="95%" stopColor={currentMetric.color} stopOpacity={0} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -117,7 +130,7 @@ export const TelemetryChart = () => {
                         <Area
                             type="monotone"
                             dataKey={selectedMetric}
-                            stroke={CHART_COLORS[selectedMetric]}
+                            stroke={currentMetric.color}
                             strokeWidth={2}
                             fillOpacity={1}
                             fill="url(#colorValue)"

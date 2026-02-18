@@ -6,7 +6,7 @@ import { TelemetryChart } from '../components/dashboard/TelemetryChart';
 import { AlertPanel } from '../components/dashboard/AlertPanel';
 import { MachineStatusCards } from '../components/dashboard/MachineStatusCards';
 import { PageTransition } from '../components/layout/PageTransition';
-import { ShieldCheck, Wifi, Terminal } from 'lucide-react';
+import { ShieldCheck, Wifi, WifiOff, Terminal } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BentoGrid } from '../components/ui/bento-grid';
 import { BackgroundGradient } from '../components/ui/background-gradient';
@@ -14,22 +14,23 @@ import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Spotlight } from '../components/ui/spotlight';
+import { useConnectionStatus } from '../hooks/useTelemetry';
 
 export const Dashboard = () => {
     const [currentTime, setCurrentTime] = useState(new Date());
+    const isConnected = useConnectionStatus();
 
     useEffect(() => {
-        TelemetryService.startTelemetrySimulation();
+        TelemetryService.connect();
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => {
-            TelemetryService.stopTelemetrySimulation();
+            TelemetryService.disconnect();
             clearInterval(timer);
         };
     }, []);
 
     return (
         <div className="min-h-screen bg-black text-white selection:bg-blue-500/30 font-sans overflow-hidden">
-            {/* Ambient Background Spotlight - Reuse from Landing for consistency */}
             <Spotlight className="-top-40 left-0 md:left-60 md:-top-20 opacity-50" fill="white" />
 
             <div className="fixed inset-0 z-0 pointer-events-none">
@@ -42,7 +43,7 @@ export const Dashboard = () => {
             <PageTransition>
                 <main className="relative z-10 pt-24 pb-12 px-6 max-w-[1600px] mx-auto space-y-8">
 
-                    {/* Header with Ticker */}
+                    {/* Header with Connection Status */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
@@ -58,13 +59,28 @@ export const Dashboard = () => {
 
                         <Card className="flex items-center gap-6 px-4 py-2 bg-black/40 backdrop-blur-md border-white/10">
                             <div className="flex items-center gap-2">
-                                <span className="block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                <span className="text-xs font-mono text-white/60">SYSTEM ONLINE</span>
+                                {isConnected ? (
+                                    <>
+                                        <span className="block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                        <span className="text-xs font-mono text-white/60">LIVE — KAFKA STREAM</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="block w-2 h-2 rounded-full bg-red-500" />
+                                        <span className="text-xs font-mono text-red-400">DISCONNECTED</span>
+                                    </>
+                                )}
                             </div>
                             <div className="w-[1px] h-4 bg-white/10" />
                             <div className="flex items-center gap-2 text-xs text-white/40 font-mono">
-                                <Wifi size={12} />
-                                <span className="text-emerald-400">12ms LATENCY</span>
+                                {isConnected ? (
+                                    <Wifi size={12} className="text-emerald-400" />
+                                ) : (
+                                    <WifiOff size={12} className="text-red-400" />
+                                )}
+                                <span className={isConnected ? 'text-emerald-400' : 'text-red-400'}>
+                                    {isConnected ? 'WebSocket' : 'Reconnecting...'}
+                                </span>
                             </div>
                             <div className="w-[1px] h-4 bg-white/10" />
                             <div className="text-xs text-white/40 font-mono">

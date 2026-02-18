@@ -8,11 +8,9 @@ export const useTelemetry = () => {
 export const useMachineTelemetry = (machineId: string | null) => {
     const telemetryData = useTelemetryStore((state) => state.telemetryData);
 
-
     const data = useMemo(() => {
         if (!machineId) return [];
 
-        // Sort by timestamp just in case, though they should be ordered
         return telemetryData
             .filter((d) => d.machineId === machineId)
             .sort((a, b) => a.timestamp - b.timestamp);
@@ -30,11 +28,15 @@ export const useMachineStats = () => {
 
     const stats = useMemo(() => {
         const total = machines.length;
-        const active = machines.filter(m => m.status !== 'critical').length; // Assuming critical might mean down/issue
+        const active = machines.filter(m => m.status !== 'critical').length;
         const alerts = machines.filter(m => m.status !== 'normal').length;
 
         return { total, active, alerts };
     }, [machines]);
 
     return stats;
+};
+
+export const useConnectionStatus = () => {
+    return useTelemetryStore((state) => state.isConnected);
 };

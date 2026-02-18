@@ -68,13 +68,30 @@ export const AlertPanel = () => {
                                                         )}>
                                                             {alert.severity}
                                                         </span>
+                                                        {alert.failure_type && alert.failure_type !== 'No Failure' && (
+                                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-white/10 text-white/50">
+                                                                {alert.failure_type}
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                     <p className="text-sm text-white/90 font-medium leading-tight mb-2">
                                                         {alert.message}
                                                     </p>
-                                                    <p className="text-xs text-white/40">
-                                                        Machine: <span className="text-white/60">{alert.machineName}</span>
-                                                    </p>
+                                                    <div className="flex items-center gap-3 text-xs text-white/40">
+                                                        <span>
+                                                            Machine: <span className="text-white/60">{alert.machineName}</span>
+                                                        </span>
+                                                        {alert.confidence !== undefined && (
+                                                            <span>
+                                                                Confidence: <span className="text-white/60">{(alert.confidence * 100).toFixed(1)}%</span>
+                                                            </span>
+                                                        )}
+                                                        {alert.anomalyScore !== undefined && (
+                                                            <span>
+                                                                Score: <span className="text-white/60">{alert.anomalyScore.toFixed(3)}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <span className="text-[10px] font-mono text-white/30 whitespace-nowrap bg-black/20 px-1.5 py-0.5 rounded">
                                                     {new Date(alert.timestamp).toLocaleTimeString([], { hour12: false })}
@@ -88,7 +105,6 @@ export const AlertPanel = () => {
                     </div>
                 </ScrollArea>
 
-                {/* Background Decor */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/5 rounded-full blur-[80px] pointer-events-none" />
             </CardContent>
         </Card>

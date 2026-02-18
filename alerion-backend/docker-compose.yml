@@ -1,0 +1,140 @@
+# ─────────────────────────────────────────────────────────────
+# Alerion AI — Docker Compose (Full Stack)
+# ─────────────────────────────────────────────────────────────
+#
+# Services:
+#   1. kafka       — Confluent Kafka in KRaft mode (no Zookeeper)
+#   2. ml-service  — Python FastAPI ML inference microservice
+#   3. backend     — Node.js WebSocket + Kafka consumer server
+#
+# USAGE:
+#   docker compose up -d                    # Start all services
+#   docker compose up kafka -d              # Start Kafka only
+#   docker compose logs -f ml-service       # Follow ML service logs
+#   docker compose down                     # Stop all services
+#
+# SCALABILITY:
+#   docker compose up --scale ml-service=3  # Run 3 ML replicas
+#   Each replica joins the same consumer group → partitions auto-balanced
+#
+# NETWORK:
+#   All services share the 'alerion-net' bridge network.
+#   For cross-laptop deployment, update KAFKA_ADVERTISED_LISTENERS
+#   to the Fog laptop's IP address.
+# ─────────────────────────────────────────────────────────────
+
+services:
+  # ─── Kafka Broker (KRaft Mode — No Zookeeper) ──────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: alerion-kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"       # External client access
+      - "9093:9093"       # Controller (internal)
+    environment:
+      # KRaft mode configuration
+      KAFKA_KRAFT_MODE: "true"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_NODE_ID: "1"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      # Listeners:
+      # PLAINTEXT  → internal Docker network (service-to-service)
+      # EXTERNAL   → host machine access (edge nodes, development)
+      # CONTROLLER → KRaft controller protocol
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+
+      # Storage
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+      # SCALABILITY: Default partitions per auto-created topic
+      # Higher partition count = more parallel consumers
+      KAFKA_NUM_PARTITIONS: "5"
+
+      # Single-broker replication (MUST be 1 for single-node clusters)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+
+      # Performance tuning
+      KAFKA_LOG_RETENTION_HOURS: "24"
+      KAFKA_LOG_SEGMENT_BYTES: "1073741824"
+
+      # Cluster ID (required for KRaft)
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - alerion-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ─── Python ML Inference Service ────────────────────────────
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: alerion-ml-service
+    ports:
+      - "8000:8000"
+    environment:
+      KAFKA_BROKERS: "kafka:29092"
+      MACHINE_DATA_TOPIC: "machine-data"
+      PREDICTION_DATA_TOPIC: "prediction-data"
+      CONSUMER_GROUP: "ml-python-consumers"
+      MODEL_PATH: "./model/model.pkl"
+      ML_SERVICE_PORT: "8000"
+    volumes:
+      # Mount trained model file from host
+      - ./ml-service/model:/app/model
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - alerion-net
+    restart: unless-stopped
+
+  # ─── Node.js Backend (WebSocket + Consumers) ────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alerion-backend
+    ports:
+      - "3000:3000"       # Express health server
+      - "8080:8080"       # WebSocket server
+    environment:
+      KAFKA_BROKERS: "kafka:29092"
+      KAFKA_CLIENT_ID: "alerion-backend"
+      WS_PORT: "8080"
+      HTTP_PORT: "3000"
+      ML_SERVICE_URL: "http://ml-service:8000"
+      USE_MOCK_ML: "false"  # Python service handles ML
+      MACHINE_DATA_TOPIC: "machine-data"
+      PREDICTION_DATA_TOPIC: "prediction-data"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - alerion-net
+    restart: unless-stopped
+
+# ─── Shared Resources ────────────────────────────────────────
+
+volumes:
+  kafka_data:
+    driver: local
+
+networks:
+  alerion-net:
+    driver: bridge
