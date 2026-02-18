@@ -1,286 +1,748 @@
+<![CDATA[<div align="center">
+
 # 📡 Alerion AI
 
 ### Distributed Edge–Fog AI Monitoring Platform
 
-**Alerion AI** is a distributed industrial monitoring system designed to simulate real-world machine telemetry pipelines using Edge nodes, Fog computing, Kafka streaming, ML-based anomaly detection, and a real-time React dashboard.
+**Real-time industrial anomaly detection** powered by Kafka streaming, ML inference, and WebSocket-driven dashboards.
+
+[![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org/)
+[![Apache Kafka](https://img.shields.io/badge/Kafka-KRaft_Mode-231F20?logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://python.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com/)
+
+</div>
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+  - [High-Level Diagram](#high-level-diagram)
+  - [Data Flow Pipeline](#data-flow-pipeline)
+  - [Component Interaction](#component-interaction)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+  - [1. Clone the Repository](#1-clone-the-repository)
+  - [2. Start the Fog Layer (Docker)](#2-start-the-fog-layer-docker)
+  - [3. Start Edge Nodes](#3-start-edge-nodes)
+  - [4. Start the Dashboard](#4-start-the-dashboard)
+- [Running Modes](#running-modes)
+  - [Single Machine (Development)](#single-machine-development)
+  - [Multi-Laptop (Distributed Demo)](#multi-laptop-distributed-demo)
+- [ML Model Details](#ml-model-details)
+- [API Reference](#api-reference)
+- [Kafka Topics](#kafka-topics)
+- [Environment Variables](#environment-variables)
+- [Scalability & Performance](#scalability--performance)
+- [Future Roadmap](#future-roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Overview
+
+**Alerion AI** simulates a full-scale industrial IoT monitoring pipeline. It generates machine sensor telemetry from edge nodes, streams it through Apache Kafka to a fog layer that performs both statistical boundary checks and ML-based anomaly detection, and pushes real-time predictions to a React dashboard via WebSockets.
 
 > This project demonstrates scalable distributed systems architecture in a local multi-device environment.
 
+**Key capabilities:**
+- 🏭 **5 independent edge nodes** simulating CNC machines with realistic sensor drift & anomaly spikes
+- ⚡ **Apache Kafka (KRaft mode)** for fault-tolerant, high-throughput event streaming
+- 🤖 **Dual ML inference** — Flask standalone API + Dockerized FastAPI Kafka consumer
+- 📊 **Real-time React dashboard** with live charts, alert feeds, and machine health views
+- 🐳 **One-command Docker deployment** orchestrating Kafka, ML, and backend
+
 ---
 
-## 🏗 Architecture Overview
+## Architecture
 
-The system follows a 3-layer distributed architecture:
+### High-Level Diagram
+
+```mermaid
+graph TB
+    subgraph Edge["🔧 Edge Layer"]
+        E1["Edge Node 1<br/>(CNC Mill — H)"]
+        E2["Edge Node 2<br/>(Lathe — M)"]
+        E3["Edge Node 3<br/>(Press — L)"]
+        E4["Edge Node 4<br/>(Grinder — H)"]
+        E5["Edge Node 5<br/>(Drill — M)"]
+    end
+
+    subgraph Fog["☁️ Fog Layer"]
+        K["Apache Kafka<br/>KRaft Mode"]
+        ML["ML Service<br/>XGBoost / Random Forest"]
+        WS["WebSocket Server<br/>Port 8080"]
+        HTTP["Express Health API<br/>Port 3000"]
+    end
+
+    subgraph Dashboard["📊 Dashboard Layer"]
+        UI["React Frontend<br/>Vite + Tailwind"]
+    end
+
+    E1 & E2 & E3 & E4 & E5 -->|"Produce → machine-data"| K
+    K -->|"Consume"| ML
+    ML -->|"Produce → prediction-data"| K
+    K -->|"Consume"| WS
+    WS -->|"WebSocket Push"| UI
+    HTTP -.->|"Health / Stats"| UI
+
+    style Edge fill:#1a1a2e,stroke:#e94560,color:#fff
+    style Fog fill:#16213e,stroke:#0f3460,color:#fff
+    style Dashboard fill:#0f3460,stroke:#533483,color:#fff
+```
+
+### Data Flow Pipeline
+
+```mermaid
+sequenceDiagram
+    participant Edge as 🔧 Edge Node
+    participant Kafka as 📨 Kafka Broker
+    participant ML as 🤖 ML Service
+    participant Backend as ⚙️ Backend
+    participant WS as 🔌 WebSocket
+    participant UI as 📊 Dashboard
+
+    Edge->>Kafka: Publish sensor telemetry<br/>(topic: machine-data)
+    Kafka->>ML: Consume raw readings
+    ML->>ML: Feature engineering<br/>+ Model inference
+    ML->>Kafka: Publish prediction<br/>(topic: prediction-data)
+    Kafka->>Backend: Consume predictions
+    Backend->>WS: Forward to WebSocket
+    WS->>UI: Real-time push<br/>(JSON over WS)
+    UI->>UI: Render charts,<br/>alerts & status
+```
+
+### Component Interaction
+
+```mermaid
+flowchart LR
+    subgraph Telemetry["Sensor Telemetry"]
+        direction TB
+        T1["Air Temperature (K)"]
+        T2["Process Temperature (K)"]
+        T3["Rotational Speed (RPM)"]
+        T4["Torque (Nm)"]
+        T5["Tool Wear (min)"]
+    end
+
+    subgraph Detection["Anomaly Detection"]
+        direction TB
+        STAT["Statistical<br/>Boundary Check"]
+        MLM["ML Model<br/>Prediction"]
+    end
+
+    subgraph Outcomes["Results"]
+        direction TB
+        OK["✅ Normal Operation"]
+        ALERT["🚨 Alert Generated"]
+    end
+
+    Telemetry --> STAT
+    STAT -->|"Within bounds"| MLM
+    STAT -->|"Boundary violation"| ALERT
+    MLM -->|"No anomaly"| OK
+    MLM -->|"Anomaly detected"| ALERT
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|:------|:-----------|:--------|
+| **Edge** | Node.js 22, TypeScript, KafkaJS | Sensor data simulation & Kafka publishing |
+| **Kafka** | Confluent Kafka 7.6.0 (KRaft) | Event streaming, topic partitioning, consumer groups |
+| **ML (Dockerized)** | Python 3.11, FastAPI, Confluent Kafka | Real-time Kafka consumer → ML inference → Kafka producer |
+| **ML (Standalone)** | Python, Flask, scikit-learn, XGBoost | REST API for batch & single predictions |
+| **Backend** | Node.js, Express, WebSocket (ws) | Kafka → WebSocket bridge, health/stats endpoints |
+| **Frontend** | React 19, Vite, Tailwind CSS, Recharts | Real-time dashboard, charts, alerts UI |
+| **State** | Zustand | Frontend state management |
+| **Animations** | Framer Motion | UI transitions & micro-animations |
+| **Infra** | Docker, Docker Compose | One-command deployment of all services |
+
+---
+
+## Project Structure
 
 ```text
-                ┌────────────────────────┐
-                │      EDGE LAYER        │
-                │  (Laptop 1)            │
-                │  - Sensor simulators   │
-                │  - Machine generators  │
-                └──────────┬─────────────┘
-                           │
-                           ▼
-                ┌────────────────────────┐
-                │      FOG LAYER         │
-                │  (Laptop 2)            │
-                │  - Kafka Broker        │
-                │  - Statistical Filter  │
-                │  - ML Anomaly Model    │
-                │  - WebSocket Server    │
-                └──────────┬─────────────┘
-                           │
-                           ▼
-                ┌────────────────────────┐
-                │   DASHBOARD LAYER      │
-                │   (Laptop 3)           │
-                │   - React Frontend     │
-                │   - Real-time Charts   │
-                │   - Alerts UI          │
-                └────────────────────────┘
+alerion-ai/
+│
+├── alerion-backend/              # ⚙️ Fog Layer (Node.js + Docker services)
+│   ├── src/
+│   │   ├── index.ts              #    Backend entrypoint (Express + WS + Consumers)
+│   │   ├── config/
+│   │   │   └── kafka.ts          #    Kafka client factory & topic management
+│   │   ├── consumers/
+│   │   │   ├── mlConsumer.ts     #    Kafka → ML inference → Kafka pipeline
+│   │   │   └── predictionConsumer.ts  # Kafka → WebSocket bridge
+│   │   ├── producers/
+│   │   │   └── machineProducer.ts     # Edge → Kafka publisher
+│   │   ├── edge/
+│   │   │   ├── edgeSimulator.ts  #    Shared telemetry generator (Gaussian noise + drift)
+│   │   │   ├── edgeNode1.ts      #    CNC Milling Machine (High capacity)
+│   │   │   ├── edgeNode2.ts      #    Industrial Lathe (Medium)
+│   │   │   ├── edgeNode3.ts      #    Hydraulic Press (Low)
+│   │   │   ├── edgeNode4.ts      #    Surface Grinder (High)
+│   │   │   └── edgeNode5.ts      #    Precision Drill (Medium)
+│   │   ├── websocket/
+│   │   │   └── wsServer.ts       #    WebSocket broadcast server
+│   │   ├── types/
+│   │   │   └── machine.types.ts  #    Shared TypeScript interfaces
+│   │   ├── ml/                   #    Mock ML consumer (fallback)
+│   │   └── test/
+│   │       └── wsTestClient.ts   #    WebSocket test client
+│   ├── ml-service/               # 🤖 Dockerized FastAPI ML microservice
+│   │   ├── app/
+│   │   │   ├── main.py           #    FastAPI app + Kafka consumer/producer
+│   │   │   └── predictor.py      #    ML model loader + inference
+│   │   ├── model/                #    Trained model artifacts (.pkl)
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   ├── docker-compose.yml        # 🐳 Full stack orchestration
+│   ├── Dockerfile                #    Backend container
+│   ├── .env.example              #    Environment template
+│   └── package.json
+│
+├── AlerionAI/                    # 📊 Dashboard (React + Vite)
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Landing.tsx       #    Landing page
+│   │   │   ├── Dashboard.tsx     #    Real-time monitoring dashboard
+│   │   │   ├── Login.tsx         #    Authentication
+│   │   │   ├── SignUp.tsx        #    Registration
+│   │   │   ├── About.tsx         #    About page
+│   │   │   └── Documentation.tsx #    Docs page
+│   │   ├── components/           #    25 reusable UI components
+│   │   ├── services/
+│   │   │   └── telemetryService.ts  # WebSocket client
+│   │   ├── store/                #    Zustand state stores
+│   │   ├── hooks/                #    Custom React hooks
+│   │   ├── types/                #    TypeScript types
+│   │   └── styles/               #    Global styles
+│   ├── index.html
+│   ├── vite.config.ts
+│   └── package.json
+│
+├── ml/                           # 🧪 Standalone ML Training & API
+│   ├── app.py                    #    Flask REST API (/predict, /predict/batch)
+│   ├── training_notebook.ipynb   #    Jupyter notebook — model training pipeline
+│   ├── predictive_maintenance.csv#    Training dataset (10,000 records)
+│   ├── model_artifacts/          #    Saved models, scaler, label encoder
+│   │   ├── model.pkl
+│   │   ├── scaler.pkl
+│   │   ├── label_encoder.pkl
+│   │   └── metadata.json
+│   ├── requirements.txt
+│   └── *.png                     #    Visualizations (confusion matrices, distributions)
+│
+├── infrastructure/               # 🏗️ Infrastructure configs
+│   └── kafka/                    #    Kafka configuration files
+│
+├── .gitignore
+└── README.md                     #    ← You are here
 ```
 
-### 🧠 System Flow
+---
 
-1.  **Edge nodes** simulate machine sensor data.
-2.  Data is pushed to the **Fog layer** via Kafka.
-3.  **Fog layer** performs:
-    *   Statistical boundary validation
-    *   ML-based anomaly detection
-4.  **Logic**:
-    *   If statistical model fails → **Immediate Alert**.
-    *   If ML detects anomaly → **Alert Generated**.
-5.  **Dashboard** receives real-time updates via WebSocket.
+## Prerequisites
+
+| Tool | Version | Install |
+|:-----|:--------|:--------|
+| **Node.js** | ≥ 22.x | [nodejs.org](https://nodejs.org/) |
+| **npm** | ≥ 10.x | Included with Node.js |
+| **Docker** | ≥ 24.x | [docker.com](https://docker.com/) |
+| **Docker Compose** | ≥ 2.20 | Included with Docker Desktop |
+| **Python** | ≥ 3.10 | [python.org](https://python.org/) *(only for standalone ML)* |
 
 ---
 
-## ⚙️ Technologies Used
+## Getting Started
 
-| Layer | Technologies |
-| :--- | :--- |
-| **Edge Layer** | Node.js, TypeScript, KafkaJS |
-| **Fog Layer** | Apache Kafka (Docker), Node.js / Python, ML Model (Pre-trained), WebSocket Server |
-| **Dashboard Layer** | React, TypeScript, Tailwind CSS, Recharts, WebSocket Client |
-
----
-
-## 🖥 Multi-Laptop Setup (Distributed Demo Mode)
-
-This project is designed to run across 3 physical laptops connected via a local WiFi hotspot.
-
-| Device | Role |
-| :--- | :--- |
-| **Laptop 1** | Edge Nodes |
-| **Laptop 2** | Fog Layer (Kafka + ML + WS Server) |
-| **Laptop 3** | React Dashboard |
-
-### 🌐 Network Configuration
-
-**Step 1: Find Fog Laptop IP**
-
-On **Laptop 2** (Fog Layer), run:
+### 1. Clone the Repository
 
 ```bash
-ipconfig getifaddr en0
+git clone https://github.com/DevanshBehl/Alerion-AI.git
+cd Alerion-AI
 ```
 
-> **Example:** `192.168.1.45`
+### 2. Start the Fog Layer (Docker)
 
-This IP will be used by both **Edge nodes** and the **Dashboard**.
+This single command boots **Kafka**, the **Python ML service**, and the **Node.js backend**:
 
----
-
-## 🐳 Kafka Setup (Fog Laptop)
-
-**Start Kafka**
 ```bash
+cd alerion-backend
+
+# Copy the environment template
+cp .env.example .env
+
+# Start all services (Kafka + ML + Backend)
 docker compose up -d
 ```
 
-**Stop Kafka**
+**Verify services are running:**
+
 ```bash
+# Check container status
+docker compose ps
+
+# Expected output:
+# alerion-kafka        Running   0.0.0.0:9092->9092/tcp
+# alerion-ml-service   Running   0.0.0.0:8000->8000/tcp
+# alerion-backend      Running   0.0.0.0:3000->3000/tcp, 0.0.0.0:8080->8080/tcp
+
+# Check backend health
+curl http://localhost:3000/health
+
+# Check ML service health
+curl http://localhost:8000/health
+```
+
+<details>
+<summary>📋 <strong>Individual service commands</strong></summary>
+
+```bash
+# Start only Kafka
+docker compose up kafka -d
+
+# Start all services and follow logs
+docker compose up -d && docker compose logs -f
+
+# View ML service logs
+docker compose logs -f ml-service
+
+# Scale ML service to 3 replicas
+docker compose up --scale ml-service=3 -d
+
+# Stop all services
 docker compose down
+
+# Stop and remove volumes (clean reset)
+docker compose down -v
 ```
 
-**Create Topic**
+</details>
+
+### 3. Start Edge Nodes
+
+Open a **new terminal** (keep Docker running):
+
 ```bash
-docker exec -it kafka kafka-topics \
-  --create \
-  --topic sensor-data \
-  --bootstrap-server localhost:9092 \
-  --partitions 1 \
-  --replication-factor 1
+cd alerion-backend
+
+# Install dependencies (first time only)
+npm install
+
+# Option A: Start all 5 edge nodes simultaneously
+npm run start:edges
+
+# Option B: Start individual edge nodes
+npm run start:edge1   # CNC Milling Machine (High capacity)
+npm run start:edge2   # Industrial Lathe (Medium capacity)
+npm run start:edge3   # Hydraulic Press (Low capacity)
+npm run start:edge4   # Surface Grinder (High capacity)
+npm run start:edge5   # Precision Drill (Medium capacity)
 ```
 
----
-
-## 🔌 WebSocket Server Configuration
-
-Make sure the server binds to all interfaces:
-
-```javascript
-server.listen(3000, '0.0.0.0')
-```
-
-**Dashboard Connection:**
-The dashboard must connect using the Fog Laptop's IP, **NOT** localhost.
+You should see telemetry being sent:
 
 ```text
-ws://192.168.1.45:3000
+╔════════════════════════════════════════════╗
+║  ALERION AI — Edge Node Simulator          ║
+║  Machine: MACHINE-001                      ║
+║  Type:    H                                ║
+║  Interval: 500ms                           ║
+╚════════════════════════════════════════════╝
+
+[MACHINE-001] → Sent: temp=305.2K, rpm=1847, torque=42.3Nm
+[MACHINE-001] → Sent: temp=306.1K, rpm=1832, torque=43.1Nm
 ```
 
----
+### 4. Start the Dashboard
 
-## 📊 Anomaly Detection Logic
+Open **another terminal**:
 
-### Statistical Model Logic
-The Fog layer applies a variance boundary check.
-
-*   **Temperature safe range:** 20°C – 80°C
-*   **Vibration threshold:** < 5.0
-*   **Pressure threshold:** < 200 PSI
-
-> **Alert:** If data exceeds these thresholds, an immediate alert is triggered: *"Machine ID XX requires attention."* (Bypasses ML).
-
-### 🤖 ML Anomaly Detection
-If statistical validation passes:
-
-1.  Data is forwarded to the **ML model**.
-2.  Model predicts anomaly probability.
-3.  If `anomaly score > threshold`:
-    *   **Alert generated**
-    *   **Dashboard updated**
-
-*Supported Models:* Isolation Forest, Autoencoder, One-Class SVM, or Custom TensorFlow/PyTorch model.
-
----
-
-## 📈 Dashboard Features
-
-*   ✅ **Real-time machine status**
-*   ✅ **Interactive graphs**
-*   ✅ **Live anomaly feed**
-*   ✅ **Alert notification panel**
-*   ✅ **Machine health statistics**
-*   ✅ **Dark professional UI**
-
----
-
-## 🚀 Running the Full System
-
-### 1. Laptop 2 (Fog Layer)
 ```bash
+cd AlerionAI
+
+# Install dependencies (first time only)
+npm install
+
+# Start the development server
+npm run dev
+```
+
+The dashboard will open at **http://localhost:5173** (Vite default).
+
+> **⚡ All three layers are now running!** Edge nodes → Kafka → ML → WebSocket → Dashboard
+
+---
+
+## Running Modes
+
+### Single Machine (Development)
+
+Everything runs on one machine. This is the default setup.
+
+```mermaid
+graph LR
+    A["Terminal 1<br/>docker compose up -d"] --> B["Terminal 2<br/>npm run start:edges"]
+    B --> C["Terminal 3<br/>npm run dev (frontend)"]
+
+    style A fill:#1a1a2e,stroke:#e94560,color:#fff
+    style B fill:#16213e,stroke:#0f3460,color:#fff
+    style C fill:#0f3460,stroke:#533483,color:#fff
+```
+
+**Step-by-step:**
+
+| Step | Terminal | Command | Purpose |
+|:----:|:---------|:--------|:--------|
+| 1 | Terminal 1 | `cd alerion-backend && docker compose up -d` | Start Kafka + ML + Backend |
+| 2 | Terminal 2 | `cd alerion-backend && npm install && npm run start:edges` | Start edge nodes |
+| 3 | Terminal 3 | `cd AlerionAI && npm install && npm run dev` | Start dashboard |
+| 4 | Browser | Open `http://localhost:5173` | View real-time dashboard |
+
+### Multi-Laptop (Distributed Demo)
+
+For the full distributed experience across **3 physical machines** on the same network.
+
+```mermaid
+graph TB
+    subgraph L1["💻 Laptop 1 — Edge Layer"]
+        Edge["5× Edge Nodes<br/>npm run start:edges"]
+    end
+
+    subgraph L2["💻 Laptop 2 — Fog Layer"]
+        Docker["Docker Compose<br/>(Kafka + ML + Backend)"]
+    end
+
+    subgraph L3["💻 Laptop 3 — Dashboard"]
+        React["React Frontend<br/>npm run dev"]
+    end
+
+    Edge -->|"Kafka TCP<br/>IP:9092"| Docker
+    Docker -->|"WebSocket<br/>IP:8080"| React
+
+    style L1 fill:#1a1a2e,stroke:#e94560,color:#fff
+    style L2 fill:#16213e,stroke:#0f3460,color:#fff
+    style L3 fill:#0f3460,stroke:#533483,color:#fff
+```
+
+**Step-by-step:**
+
+#### Step 1 — Find the Fog Laptop IP
+
+On **Laptop 2** (Fog), run:
+
+```bash
+# macOS
+ipconfig getifaddr en0
+
+# Linux
+hostname -I | awk '{print $1}'
+
+# Windows
+ipconfig | findstr "IPv4"
+```
+
+> Example output: `192.168.1.45`
+
+#### Step 2 — Start Fog Layer (Laptop 2)
+
+```bash
+cd alerion-backend
+
+# Update Kafka advertised listeners for external access
+# Edit docker-compose.yml → KAFKA_ADVERTISED_LISTENERS:
+#   EXTERNAL://192.168.1.45:9092  (replace localhost)
+
 docker compose up -d
-npm run start:fog
 ```
 
-### 2. Laptop 1 (Edge Layer)
-Make sure Kafka broker is set to `192.168.1.45:9092`.
+#### Step 3 — Start Edge Nodes (Laptop 1)
+
 ```bash
-npm run start:edge
+cd alerion-backend
+
+# Update .env to point to Fog laptop
+echo "KAFKA_BROKERS=192.168.1.45:9092" > .env
+
+npm install
+npm run start:edges
 ```
 
-### 3. Laptop 3 (Dashboard)
-Ensure WebSocket URL points to `ws://192.168.1.45:3000`.
+#### Step 4 — Start Dashboard (Laptop 3)
+
 ```bash
+cd AlerionAI
+
+# Update WebSocket URL in the telemetry service to:
+# ws://192.168.1.45:8080
+
+npm install
 npm run dev
 ```
 
 ---
 
-## 📊 Performance & Scalability
+## ML Model Details
 
-### Capabilities
-*   **Local demo**: Handles 2 machine updates/sec (very low load).
-*   **High load**: Can handle 100+ updates/sec easily.
-*   **Theoretical max**: 10,000 messages/sec (hardware dependent).
-*   **Buffering**: Kafka handles burst traffic.
+### Training Pipeline
 
-### Scalability Design
-Although the demo runs locally, the architecture supports:
-*   Horizontal WebSocket scaling
-*   Multiple Kafka brokers
-*   Partitioned topics
-*   Scalable ML workers
-*   Cloud deployment (AWS / GCP)
+The model is trained on the [Predictive Maintenance Dataset](https://archive.ics.uci.edu/ml/datasets/AI4I+2020+Predictive+Maintenance+Dataset) (10,000 records) with the following pipeline:
 
----
+```mermaid
+flowchart LR
+    A["Raw CSV<br/>10K records"] --> B["Feature<br/>Engineering"]
+    B --> C["SMOTE<br/>Oversampling"]
+    C --> D["Train/Test<br/>Split"]
+    D --> E["Model Training<br/>XGBoost + RF"]
+    E --> F["Model<br/>Evaluation"]
+    F --> G["Export<br/>model.pkl"]
 
-## 🔐 Security & Alerts
+    style A fill:#1a1a2e,stroke:#e94560,color:#fff
+    style G fill:#0f3460,stroke:#533483,color:#fff
+```
 
-### Authentication (Dashboard)
-*   JWT-based authentication
-*   Protected routes
-*   Role-based access (Admin / Viewer)
+### Features Used
 
-### 🛡 Alert Logic
-Alerts are triggered when:
-1.  Statistical boundary violation
-2.  ML anomaly detection
-3.  Edge node failure detection
-4.  Kafka consumer lag threshold exceeded
+| Feature | Description | Range |
+|:--------|:------------|:------|
+| `Air temperature [K]` | Ambient air temperature | 290–320 K |
+| `Process temperature [K]` | Process operating temperature | 300–340 K |
+| `Rotational speed [rpm]` | Spindle RPM | 1,000–3,000 |
+| `Torque [Nm]` | Torque applied | 10–80 Nm |
+| `Tool wear [min]` | Cumulative tool usage | 0–250 min |
+| `type_encoded` | Machine type (L=0, M=1, H=2) | 0–2 |
+| `temp_diff` | Process − Air temperature | Derived |
+| `power_W` | Torque × angular velocity | Derived |
+| `torque_x_wear` | Torque × tool wear | Derived |
+| `rpm_per_torque` | RPM / Torque ratio | Derived |
 
----
+### Failure Classes
 
-## 📂 Suggested Folder Structure
+| Class | Severity | Description |
+|:------|:---------|:------------|
+| No Failure | — | Normal operation |
+| Heat Dissipation Failure | 🔴 High | Overheating condition |
+| Power Failure | 🔴 High | Electrical/power anomaly |
+| Overstrain Failure | 🔴 High | Mechanical overstress |
+| Tool Wear Failure | 🟡 Medium | Gradual tool degradation |
+| Random Failures | 🟡 Medium | Unpredictable failure events |
 
-```text
-alerion-ai/
-│
-├── edge/
-│   ├── src/
-│   └── package.json
-│
-├── fog/
-│   ├── kafka/
-│   ├── ml/
-│   ├── websocket/
-│   └── package.json
-│
-├── dashboard/
-│   ├── src/
-│   └── package.json
-│
-└── README.md
+### Running the Standalone ML API
+
+```bash
+cd ml
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate    # macOS/Linux
+# .venv\Scripts\activate     # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the Flask API
+python app.py
+# → API running at http://localhost:5000
+```
+
+**Test a prediction:**
+
+```bash
+curl -X POST http://localhost:5000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "air_temperature": 298.1,
+    "process_temperature": 308.6,
+    "rotational_speed": 1551,
+    "torque": 42.8,
+    "tool_wear": 0,
+    "machine_type": "M"
+  }'
 ```
 
 ---
 
-## 🎯 Demo Explanation Script (For Presentation)
+## API Reference
 
-> "Alerion AI simulates a distributed industrial monitoring platform. 
-> Edge nodes generate machine telemetry. 
-> Fog layer processes data using statistical filtering and ML anomaly detection. 
-> Kafka ensures scalable, decoupled streaming. 
-> WebSockets push real-time updates to the dashboard. 
-> The architecture is horizontally scalable and production-ready."
+### Backend (Express — Port 3000)
+
+| Method | Endpoint | Description |
+|:-------|:---------|:------------|
+| `GET` | `/health` | Service health check (uptime, status) |
+| `GET` | `/stats` | WebSocket stats (connected clients, messages) |
+| `GET` | `/ready` | Readiness probe for orchestrators |
+
+### ML Service — Flask (Port 5000)
+
+| Method | Endpoint | Description |
+|:-------|:---------|:------------|
+| `GET` | `/health` | Model info & service status |
+| `GET` | `/classes` | List all failure classes |
+| `GET` | `/metadata` | Full model metadata (features, metrics) |
+| `POST` | `/predict` | Single reading prediction |
+| `POST` | `/predict/batch` | Batch predictions (max 100 readings) |
+
+### ML Service — FastAPI / Docker (Port 8000)
+
+The Dockerized ML service consumes directly from Kafka (`machine-data` topic), runs inference, and publishes results to the `prediction-data` topic. It also exposes a health endpoint.
+
+### WebSocket (Port 8080)
+
+Clients connect to `ws://localhost:8080` and receive JSON messages:
+
+```json
+{
+  "type": "prediction",
+  "payload": {
+    "machine_id": "MACHINE-001",
+    "machine_type": "H",
+    "air_temperature": 305.2,
+    "process_temperature": 312.4,
+    "rotational_speed": 1847,
+    "torque": 42.3,
+    "tool_wear": 128,
+    "prediction": 0,
+    "confidence": 0.94,
+    "anomalyScore": 0.12,
+    "failure_type": "No Failure",
+    "processed_at": "2026-02-19T01:10:00.000Z"
+  },
+  "timestamp": "2026-02-19T01:10:00.000Z"
+}
+```
+
+Message types: `prediction` | `alert` | `heartbeat` | `system`
 
 ---
 
-## 🔮 Future Improvements
+## Kafka Topics
 
-*   [ ] Kubernetes deployment
-*   [ ] Kafka cluster (multi-broker)
-*   [ ] Redis caching
-*   [ ] Alert escalation via email/SMS
-*   [ ] Edge AI preprocessing
-*   [ ] Time-series database integration (InfluxDB)
+| Topic | Partitions | Producer | Consumer | Description |
+|:------|:-----------|:---------|:---------|:------------|
+| `machine-data` | 5 | Edge Nodes | ML Service | Raw sensor telemetry |
+| `prediction-data` | 5 | ML Service | Backend | ML prediction results |
+
+Topics are auto-created by Kafka (configured via `KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`), or you can create them manually:
+
+```bash
+# Create topics manually
+docker exec -it alerion-kafka kafka-topics \
+  --create --topic machine-data \
+  --bootstrap-server localhost:9092 \
+  --partitions 5 --replication-factor 1
+
+docker exec -it alerion-kafka kafka-topics \
+  --create --topic prediction-data \
+  --bootstrap-server localhost:9092 \
+  --partitions 5 --replication-factor 1
+
+# List all topics
+docker exec -it alerion-kafka kafka-topics \
+  --list --bootstrap-server localhost:9092
+
+# Consume messages from a topic (debug)
+docker exec -it alerion-kafka kafka-console-consumer \
+  --topic machine-data \
+  --bootstrap-server localhost:9092 \
+  --from-beginning
+```
 
 ---
 
-## 📌 Why This Project Matters
+## Environment Variables
 
-Industrial IoT systems require:
-*   **Low-latency processing**
-*   **Distributed compute**
-*   **Real-time anomaly detection**
-*   **Fault tolerance**
+### Backend (`alerion-backend/.env`)
 
-Alerion AI simulates this architecture in a controlled local environment.
+| Variable | Default | Description |
+|:---------|:--------|:------------|
+| `KAFKA_BROKERS` | `localhost:9092` | Kafka bootstrap servers |
+| `KAFKA_CLIENT_ID` | `alerion-backend` | Kafka client identifier |
+| `WS_PORT` | `8080` | WebSocket server port |
+| `HTTP_PORT` | `3000` | Express health server port |
+| `ML_SERVICE_URL` | `http://localhost:8000` | Python ML service URL |
+| `USE_MOCK_ML` | `true` | Use TypeScript mock ML (set `false` for Python service) |
+| `MACHINE_DATA_TOPIC` | `machine-data` | Topic for raw telemetry |
+| `PREDICTION_DATA_TOPIC` | `prediction-data` | Topic for ML predictions |
 
 ---
 
-### 🧑‍💻 Developed By
+## Scalability & Performance
 
-**Alerion AI Team**
+### Current Capabilities
+
+| Metric | Value |
+|:-------|:------|
+| Edge nodes (demo) | 5 concurrent simulators |
+| Message rate (demo) | ~10 msg/sec (2/sec per node) |
+| Max throughput | 10,000+ msg/sec (hardware dependent) |
+| Kafka partitions | 5 per topic |
+| WebSocket clients | Unlimited (broadcast) |
+| ML replicas | Scalable via `docker compose --scale` |
+
+### Scalability Architecture
+
+```mermaid
+graph TB
+    subgraph Scale["Horizontal Scaling Points"]
+        A["🔧 Edge Nodes<br/>Add more node configs"]
+        B["📨 Kafka<br/>Multi-broker cluster"]
+        C["🤖 ML Workers<br/>docker compose scale"]
+        D["🔌 WebSocket<br/>Load-balanced instances"]
+        E["☁️ Cloud<br/>AWS / GCP / Azure"]
+    end
+
+    A --> B --> C --> D --> E
+
+    style Scale fill:#1a1a2e,stroke:#e94560,color:#fff
+```
+
+---
+
+## Future Roadmap
+
+- [ ] Kubernetes deployment manifests (Helm charts)
+- [ ] Multi-broker Kafka cluster for fault tolerance
+- [ ] Redis caching for prediction results
+- [ ] Alert escalation via email / SMS / Slack
+- [ ] Edge AI preprocessing (TensorFlow Lite)
+- [ ] Time-series database integration (InfluxDB / TimescaleDB)
+- [ ] Grafana monitoring dashboards
+- [ ] OAuth2 / SSO authentication
+- [ ] CI/CD pipeline (GitHub Actions)
+
+---
+
+## Contributing
+
+1. **Fork** the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Commit changes: `git commit -m "feat: add my feature"`
+4. Push to the branch: `git push origin feature/my-feature`
+5. Open a **Pull Request**
+
+---
+
+## License
+
+This project is developed by the **Alerion AI Team** for distributed systems & AI engineering research.
+
+---
+
+<div align="center">
+
+**Built with ❤️ by [Devansh Behl](https://github.com/DevanshBehl)**
+
 *Distributed Systems & AI Engineering*
+
+</div>
+]]>
