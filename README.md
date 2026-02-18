@@ -1,4 +1,4 @@
-<![CDATA[<div align="center">
+<div align="center">
 
 # 📡 Alerion AI
 
@@ -745,4 +745,3 @@ This project is developed by the **Alerion AI Team** for distributed systems & A
 *Distributed Systems & AI Engineering*
 
 </div>
-]]>
