@@ -259,103 +259,165 @@ alerion-ai/
 | **npm** | ≥ 10.x | Included with Node.js |
 | **Docker** | ≥ 24.x | [docker.com](https://docker.com/) |
 | **Docker Compose** | ≥ 2.20 | Included with Docker Desktop |
+| **MongoDB Atlas** | Free Tier | [mongodb.com/atlas](https://www.mongodb.com/atlas) |
 | **Python** | ≥ 3.10 | [python.org](https://python.org/) *(only for standalone ML)* |
 
 ---
 
 ## Getting Started
 
-### 1. Start Database & Kafka (Docker)
+> **Important:** Follow these steps **in order**. Each step depends on the previous one.
 
-The project requires **MongoDB** for user authentication and **Apache Kafka** for real-time telemetry streaming.
+### Step 1 — Clone the Repository
 
 ```bash
-cd alerion-backend
+git clone https://github.com/DevanshBehl/Alerion-AI.git
+cd Alerion-AI
+```
 
-# Copy the environment template
-cp .env.example .env
+### Step 2 — Set Up MongoDB Atlas
 
-# Start MongoDB, Kafka, and the ML Service
+The project uses **MongoDB Atlas** (cloud) for user authentication. No local MongoDB is needed.
+
+1. Go to [MongoDB Atlas](https://www.mongodb.com/atlas) and create a free cluster
+2. Create a database user with password
+3. Under **Network Access**, add your current IP address (or `0.0.0.0/0` for development)
+4. Get your connection string — it looks like:
+   ```
+   mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/alerionAI
+   ```
+5. You'll paste this into the `.env` file in Step 4
+
+### Step 3 — Start Kafka (Terminal 1)
+
+Kafka handles real-time data streaming between edge nodes, the ML service, and the dashboard.
+
+```bash
+cd infrastructure/kafka
 docker compose up -d
 ```
 
-**Verify services are running:**
-
+**Verify it's running:**
 ```bash
-# Check container status
-docker compose ps
-
-# Expected output:
-# alerion-kafka        Running   0.0.0.0:9092->9092/tcp
-# alerion-ml-service   Running   0.0.0.0:8000->8000/tcp
-# alerion-mongodb      Running   0.0.0.0:27017->27017/tcp
+docker ps | grep kafka
+# Expected: kafka   Up X seconds   0.0.0.0:9092->9092/tcp
 ```
 
-### 2. Start the Backend API & WebSocket
+> **Note:** Wait ~15 seconds after starting for Kafka to fully initialize before starting the backend.
 
-The Node.js backend serves the authentication REST API and acts as a WebSocket bridge for Kafka.
+### Step 4 — Start the Backend (Terminal 2)
 
-Open a **new terminal**:
+Open a **new terminal**. The backend connects to MongoDB Atlas, Kafka, and serves the Auth API + WebSocket server.
 
 ```bash
 cd alerion-backend
 
-# Install dependencies
+# Install dependencies (first time only)
+npm install
+
+# Copy the environment template
+cp .env.example .env
+```
+
+**Edit the `.env` file** and set your MongoDB Atlas connection string:
+```env
+MONGODB_URI="mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/alerionAI"
+JWT_SECRET="your-secret-key"
+JWT_EXPIRES_IN=7d
+```
+
+Then start the server:
+```bash
+npm run dev
+```
+
+**Expected output:**
+```text
+[MongoDB]   ✅ Connected → mongodb+srv://***@cluster0.xxxxx.mongodb.net/alerionAI
+[Kafka]     ✅ All required topics already exist
+[HTTP]      Health server → http://0.0.0.0:3000/health
+[HTTP]      Auth API      → http://0.0.0.0:3000/api/auth
+[WebSocket] Server started on ws://0.0.0.0:8080
+[Startup]   ✅ Prediction consumer ready
+[Startup]   ✅ Mock ML consumer ready
+[Startup]   🚀 All services started successfully
+```
+
+### Step 5 — Start Edge Node Simulators (Terminal 3)
+
+Open a **new terminal**. Edge nodes simulate 5 industrial machines that send sensor telemetry into Kafka.
+
+```bash
+cd alerion-backend
+npm run start:edges
+```
+
+**Expected output:**
+```text
+[Producer] Sent → MACHINE_001 | temp: 305.2K | torque: 42.3Nm | wear: 13
+[Producer] Sent → MACHINE_002 | temp: 303.6K | torque: 41.9Nm | wear: 31
+[Producer] Sent → MACHINE_003 | temp: 307.3K | torque: 35.5Nm | wear: 33
+[Producer] Sent → MACHINE_004 | temp: 306.8K | torque: 63.1Nm | wear: 29
+[Producer] Sent → MACHINE_005 | temp: 314.0K | torque: 62.3Nm | wear: 38
+```
+
+You can also start individual nodes: `npm run start:edge1`, `start:edge2`, ..., `start:edge5`
+
+### Step 6 — Start the Dashboard (Terminal 4)
+
+Open a **new terminal**. The React dashboard displays real-time machine monitoring and anomaly alerts.
+
+```bash
+cd AlerionAI
+
+# Install dependencies (first time only)
 npm install
 
 # Start the development server
 npm run dev
 ```
 
-You should see:
+**Expected output:**
 ```text
-[MongoDB]   ✅ Connected → mongodb://localhost:27017/alerion
-[Startup]   Starting prediction consumer...
-[Startup]   ✅ Prediction consumer ready
+VITE ready in 200ms
+➜  Local:   http://localhost:5173/
 ```
 
-### 3. Start Edge Node Simulators
+### Step 7 — Test It
 
-To generate the industrial machine data, start the edge node simulators which publish directly to Kafka.
+1. Open **http://localhost:5173/signup** in your browser
+2. Create an account (name, email, company, role, password)
+3. You'll be redirected to the **real-time dashboard** at `/app`
+4. You should see live machine telemetry data streaming in from the edge nodes
+5. To test login: go to **http://localhost:5173/login** and use your credentials
 
-Open a **new terminal** (keep backend running):
+---
+
+## Stopping the Project
 
 ```bash
-cd alerion-backend
+# Stop edge nodes: Ctrl+C in Terminal 3
+# Stop backend:    Ctrl+C in Terminal 2
+# Stop frontend:   Ctrl+C in Terminal 4
 
-# Start all 5 edge nodes simultaneously
-npm run start:edges
+# Stop Kafka:
+cd infrastructure/kafka
+docker compose down
+
+# Full reset (removes Kafka data):
+docker compose down -v
 ```
 
-You should see telemetry being generated:
-```text
-[MACHINE-001] → Sent: temp=305.2K, rpm=1847, torque=42.3Nm
-```
+---
 
-*Alternatively, start individual nodes with `npm run start:edge1`, `start:edge2`, etc.*
+## Quick Reference
 
-### 4. Start the Dashboard (Frontend)
-
-The React frontend provides the UI for authentication and real-time monitoring.
-
-Open **another new terminal**:
-
-```bash
-cd AlerionAI
-
-# Install dependencies
-npm install
-
-# Start the Vite development server
-npm run dev
-```
-
-The dashboard will open at **http://localhost:5173**.
-
-> **⚡ You're ready!** 
-> 1. Go to `http://localhost:5173/signup` to create an account
-> 2. You will be redirected to the dashboard
-> 3. Enjoy full edge-to-dashboard real-time telemetry!
+| Step | Terminal | Directory | Command | What It Starts |
+|:----:|:---------|:----------|:--------|:---------------|
+| 1 | Terminal 1 | `infrastructure/kafka` | `docker compose up -d` | Kafka broker (port 9092) |
+| 2 | Terminal 2 | `alerion-backend` | `npm run dev` | Backend API (3000) + WebSocket (8080) |
+| 3 | Terminal 3 | `alerion-backend` | `npm run start:edges` | 5 edge node simulators |
+| 4 | Terminal 4 | `AlerionAI` | `npm run dev` | React dashboard (5173) |
 
 ---
 
@@ -363,23 +425,14 @@ The dashboard will open at **http://localhost:5173**.
 
 ### Single Machine (Development)
 
-Everything runs on one machine.
+Everything runs on one machine — this is the default setup described above.
 
 ```mermaid
 graph LR
-    A["Terminal 1<br/>docker compose up -d"] --> B["Terminal 2<br/>npm run dev (backend)"]
-    B --> C["Terminal 3<br/>npm run start:edges"]
-    C --> D["Terminal 4<br/>npm run dev (frontend)"]
+    A["Terminal 1<br/>docker compose up -d<br/>(infrastructure/kafka)"] --> B["Terminal 2<br/>npm run dev<br/>(alerion-backend)"]
+    B --> C["Terminal 3<br/>npm run start:edges<br/>(alerion-backend)"]
+    C --> D["Terminal 4<br/>npm run dev<br/>(AlerionAI)"]
 ```
-
-**Step-by-step Summary:**
-
-| Step | Terminal | Directory | Command | Purpose |
-|:----:|:---------|:----------|:--------|:--------|
-| 1 | Terminal 1 | `alerion-backend` | `docker compose up -d` | Start MongoDB + Kafka + ML |
-| 2 | Terminal 2 | `alerion-backend` | `npm install && npm run dev` | Start backend API & WS |
-| 3 | Terminal 3 | `alerion-backend` | `npm run start:edges` | Start data generation |
-| 4 | Terminal 4 | `AlerionAI` | `npm install && npm run dev` | Start React dashboard |
 
 ### Multi-Laptop (Distributed Demo)
 

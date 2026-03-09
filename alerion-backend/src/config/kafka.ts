@@ -167,7 +167,7 @@ export async function ensureTopics(kafka: Kafka): Promise<void> {
             waitForLeaders: true,
             topics: toCreate.map(topic => ({
                 topic,
-                numPartitions: 5,
+                numPartitions: 1,
                 replicationFactor: 1,
             })),
         });
@@ -178,3 +178,4 @@ export async function ensureTopics(kafka: Kafka): Promise<void> {
 
     await admin.disconnect();
 }
+
