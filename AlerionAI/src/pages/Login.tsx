@@ -1,27 +1,34 @@
 import { LoginForm } from '../components/auth/LoginForm';
 import { PageTransition } from '../components/layout/PageTransition';
-import { BackgroundBeams } from '../components/ui/background-beams';
-import { SpotlightCard } from '../components/ui/spotlight';
+import { Card } from '../components/ui/Card';
+import { Link } from 'react-router-dom';
+import { Activity } from 'lucide-react';
 
 export const Login = () => {
     return (
         <PageTransition>
-            <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden font-sans selection:bg-blue-500/30">
-                {/* Background Effects */}
-                <BackgroundBeams className="opacity-40" />
-
-                <div className="relative z-10 w-full max-w-md p-6">
+            <div className="min-h-screen flex items-center justify-center bg-background px-6">
+                <div className="w-full max-w-md">
                     <div className="mb-8 text-center">
-                        <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-white text-3xl shadow-lg shadow-blue-500/20 mb-6 rotate-3">
-                            A
+                        <div className="w-12 h-12 mx-auto rounded-xl bg-accent flex items-center justify-center mb-5">
+                            <Activity size={20} className="text-white" />
                         </div>
-                        <h1 className="text-3xl font-bold mb-3 tracking-tight text-white">Welcome Back</h1>
-                        <p className="text-white/50">Enter your credentials to access the telemetry dashboard.</p>
+                        <h1 className="text-2xl font-bold text-text-primary mb-2">Welcome Back</h1>
+                        <p className="text-text-secondary text-sm">
+                            Enter your credentials to access the telemetry dashboard.
+                        </p>
                     </div>
 
-                    <SpotlightCard className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-xl shadow-2xl h-auto">
+                    <Card className="shadow-sm">
                         <LoginForm />
-                    </SpotlightCard>
+                    </Card>
+
+                    <p className="text-center text-sm text-text-muted mt-6">
+                        Don't have an account?{' '}
+                        <Link to="/signup" className="text-accent hover:text-accent-hover font-medium">
+                            Sign up
+                        </Link>
+                    </p>
                 </div>
             </div>
         </PageTransition>

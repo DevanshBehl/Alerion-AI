@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { CodeBlock } from '../components/ui/CodeBlock';
-import { ChevronRight, Layers, FileJson, Server, Terminal } from 'lucide-react';
-import { BackgroundBeams } from '../components/ui/background-beams';
-import { SpotlightCard } from '../components/ui/spotlight';
+import { ChevronRight, Layers, FileJson, Server, Terminal, Copy, Check } from 'lucide-react';
+import { Card } from '../components/ui/Card';
 
 const SECTIONS = [
     { id: 'introduction', label: 'Introduction', icon: Terminal },
@@ -10,6 +8,36 @@ const SECTIONS = [
     { id: 'kafka-schemas', label: 'Kafka Schemas', icon: FileJson },
     { id: 'websocket-api', label: 'WebSocket API', icon: Server },
 ];
+
+function CodeBlock({ code, filename }: { code: string; language?: string; filename?: string }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="rounded-xl border border-border overflow-hidden">
+            {filename && (
+                <div className="flex items-center justify-between px-4 py-2 bg-surface-alt border-b border-border-light">
+                    <span className="text-xs font-mono text-text-muted">{filename}</span>
+                    <button
+                        onClick={handleCopy}
+                        className="text-text-muted hover:text-text-primary transition-colors p-1 rounded cursor-pointer"
+                        title="Copy code"
+                    >
+                        {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+                    </button>
+                </div>
+            )}
+            <pre className="p-4 bg-gray-50 overflow-x-auto">
+                <code className="text-sm font-mono text-text-primary leading-relaxed">{code}</code>
+            </pre>
+        </div>
+    );
+}
 
 export const Documentation = () => {
     const [activeSection, setActiveSection] = useState('introduction');
@@ -20,118 +48,130 @@ export const Documentation = () => {
     };
 
     return (
-        <div className="relative min-h-screen bg-black font-sans selection:bg-blue-500/30">
-            <BackgroundBeams className="opacity-40 fixed inset-0" />
-
-            <div className="flex max-w-7xl mx-auto pt-20 px-6 relative z-10">
-                {/* Sidebar Navigation */}
-                <aside className="w-64 hidden lg:block sticky top-24 h-[calc(100vh-6rem)] border-r border-white/5 overflow-y-auto pr-6">
+        <div className="min-h-screen bg-background">
+            <div className="flex max-w-6xl mx-auto pt-8 px-6">
+                {/* Sidebar */}
+                <aside className="w-56 hidden lg:block sticky top-24 h-[calc(100vh-6rem)] border-r border-border pr-6">
                     <nav className="space-y-1">
                         {SECTIONS.map((section) => (
                             <button
                                 key={section.id}
                                 onClick={() => scrollToSection(section.id)}
-                                className={`flex items-center gap-3 w-full px-4 py-2 text-sm font-medium rounded-lg transition-colors text-left ${activeSection === section.id
-                                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                    : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
+                                className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors text-left cursor-pointer ${activeSection === section.id
+                                    ? 'bg-accent-light text-accent'
+                                    : 'text-text-secondary hover:text-text-primary hover:bg-gray-100'
                                     }`}
                             >
-                                <section.icon size={16} />
+                                <section.icon size={15} />
                                 {section.label}
                                 {activeSection === section.id && (
-                                    <ChevronRight size={14} className="ml-auto opacity-70" />
+                                    <ChevronRight size={14} className="ml-auto opacity-60" />
                                 )}
                             </button>
                         ))}
                     </nav>
                 </aside>
 
-                {/* Main Content */}
-                <main className="flex-1 lg:pl-12 pb-24 space-y-24">
-
+                {/* Content */}
+                <main className="flex-1 lg:pl-10 pb-24 space-y-20">
                     {/* Introduction */}
                     <section id="introduction" className="scroll-mt-24">
-                        <h1 className="text-4xl font-bold mb-6 text-white">Introduction</h1>
-                        <p className="text-xl text-white/60 leading-relaxed mb-8">
+                        <h1 className="text-3xl font-bold text-text-primary mb-4">Introduction</h1>
+                        <p className="text-text-secondary leading-relaxed mb-6">
                             AlerionAI is a distributed industrial monitoring platform designed for massive scale.
                             It leverages Kafka for event streaming and edge computing patterns to deliver real-time insights.
                         </p>
-                        <SpotlightCard className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-6 h-auto">
-                            <h4 className="font-semibold text-blue-400 mb-2">Key Capabilities</h4>
-                            <ul className="list-disc list-inside space-y-2 text-sm text-white/70">
+                        <Card className="bg-accent-light/50 border-indigo-200">
+                            <h4 className="font-semibold text-accent mb-2 text-sm">Key Capabilities</h4>
+                            <ul className="list-disc list-inside space-y-1.5 text-sm text-text-secondary">
                                 <li>Real-time telemetry ingestion at 1M+ events/sec</li>
                                 <li>Distributed anomaly detection using statistical ML models</li>
                                 <li>Fog computing architecture for edge processing</li>
                                 <li>WebSocket-based live dashboard updates</li>
                             </ul>
-                        </SpotlightCard>
+                        </Card>
                     </section>
 
                     {/* Architecture */}
                     <section id="architecture" className="scroll-mt-24">
-                        <h2 className="text-3xl font-bold mb-6 flex items-center gap-3 text-white">
-                            <Layers className="text-blue-500" /> System Architecture
+                        <h2 className="text-2xl font-bold flex items-center gap-2 text-text-primary mb-4">
+                            <Layers className="text-accent" size={22} /> System Architecture
                         </h2>
-                        <p className="text-white/60 mb-8">
+                        <p className="text-text-secondary mb-6">
                             The platform follows an event-driven microservices architecture. Data flows from localized edge nodes to a central Kafka cluster, where it is consumed by analytic services.
                         </p>
 
-                        <div className="bg-black/50 border border-white/10 rounded-xl p-8 mb-8 relative overflow-hidden backdrop-blur-sm">
-                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black opacity-50" />
-                            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4 text-center text-sm font-mono">
-                                <div className="p-4 bg-white/5 border border-white/10 rounded-lg text-white">Edge Nodes</div>
-                                <div className="text-white/30">→</div>
-                                <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg text-purple-300">Kafka Cluster</div>
-                                <div className="text-white/30">→</div>
-                                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-300">Fog Service</div>
-                                <div className="text-white/30">→</div>
-                                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-300">Dashboard</div>
+                        <Card className="mb-6">
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-center text-sm font-mono">
+                                <div className="px-4 py-3 bg-background border border-border rounded-lg text-text-primary w-full md:w-auto">
+                                    Edge Nodes
+                                </div>
+                                <span className="text-text-muted hidden md:block">→</span>
+                                <div className="px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 w-full md:w-auto">
+                                    Kafka Cluster
+                                </div>
+                                <span className="text-text-muted hidden md:block">→</span>
+                                <div className="px-4 py-3 bg-success-light border border-emerald-200 rounded-lg text-success w-full md:w-auto">
+                                    Fog Service
+                                </div>
+                                <span className="text-text-muted hidden md:block">→</span>
+                                <div className="px-4 py-3 bg-accent-light border border-indigo-200 rounded-lg text-accent w-full md:w-auto">
+                                    Dashboard
+                                </div>
                             </div>
-                        </div>
+                        </Card>
                     </section>
 
                     {/* Kafka Schemas */}
                     <section id="kafka-schemas" className="scroll-mt-24">
-                        <h2 className="text-3xl font-bold mb-6 flex items-center gap-3 text-white">
-                            <FileJson className="text-emerald-500" /> Kafka Schemas
+                        <h2 className="text-2xl font-bold flex items-center gap-2 text-text-primary mb-4">
+                            <FileJson className="text-success" size={22} /> Kafka Schemas
                         </h2>
 
                         <div className="space-y-8">
                             <div>
-                                <h3 className="text-xl font-semibold mb-3 text-white">Telemetry Packet</h3>
-                                <p className="text-white/60 text-sm mb-4">Topic: <code>sensor-data</code></p>
+                                <h3 className="text-lg font-semibold text-text-primary mb-2">Telemetry Submission</h3>
+                                <p className="text-text-secondary text-sm mb-3">
+                                    Topic: <code className="text-accent bg-accent-light px-1.5 py-0.5 rounded text-xs">machine-data</code>
+                                </p>
                                 <CodeBlock
                                     language="json"
-                                    filename="telemetry-schema.json"
+                                    filename="machine-data-schema.json"
                                     code={`{
-  "machineId": "string (uuid)",
-  "timestamp": "number (epoch ms)",
-  "metrics": {
-    "temperature": "number (celsius)",
-    "vibration": "number (Hz)",
-    "pressure": "number (PSI)"
-  },
-  "status": "string ('running' | 'idle' | 'error')"
+  "machine_id": "string",
+  "machine_type": "string ('L' | 'M' | 'H')",
+  "timestamp": "string (ISO-8601)",
+  "air_temperature": "number (K)",
+  "process_temperature": "number (K)",
+  "rotational_speed": "number (rpm)",
+  "torque": "number (Nm)",
+  "tool_wear": "number (min)",
+  "is_anomaly_injected": "boolean"
 }`}
                                 />
                             </div>
 
                             <div>
-                                <h3 className="text-xl font-semibold mb-3 text-white">Anomaly Alert</h3>
-                                <p className="text-white/60 text-sm mb-4">Topic: <code>anomaly-events</code></p>
+                                <h3 className="text-lg font-semibold text-text-primary mb-2">ML Inference Result</h3>
+                                <p className="text-text-secondary text-sm mb-3">
+                                    Topic: <code className="text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded text-xs">prediction-data</code>
+                                </p>
                                 <CodeBlock
                                     language="json"
-                                    filename="alert-schema.json"
+                                    filename="prediction-data-schema.json"
                                     code={`{
-  "alertId": "string (uuid)",
-  "machineId": "string (uuid)",
-  "severity": "string ('warning' | 'critical')",
-  "message": "string",
-  "timestamp": "number",
-  "meta": {
-    "confidence": "number (0-1)",
-    "modelId": "string"
-  }
+  "machine_id": "string",
+  "machine_type": "string ('L' | 'M' | 'H')",
+  "air_temperature": "number",
+  "process_temperature": "number",
+  "rotational_speed": "number",
+  "torque": "number",
+  "tool_wear": "number",
+  "prediction": "number (0 | 1)",
+  "confidence": "number (0.0 - 1.0)",
+  "anomalyScore": "number",
+  "failure_type": "string",
+  "processed_at": "string (ISO-8601)"
 }`}
                                 />
                             </div>
@@ -140,14 +180,15 @@ export const Documentation = () => {
 
                     {/* WebSocket API */}
                     <section id="websocket-api" className="scroll-mt-24">
-                        <h2 className="text-3xl font-bold mb-6 flex items-center gap-3 text-white">
-                            <Server className="text-purple-500" /> WebSocket API
+                        <h2 className="text-2xl font-bold flex items-center gap-2 text-text-primary mb-4">
+                            <Server className="text-purple-600" size={22} /> WebSocket API
                         </h2>
-                        <p className="text-white/60 mb-6">
-                            The frontend connects to the WebSocket gateway at <code>wss://api.alerion.ai/v1/stream</code>.
+                        <p className="text-text-secondary mb-6">
+                            The frontend connects to the WebSocket gateway at{' '}
+                            <code className="text-accent bg-accent-light px-1.5 py-0.5 rounded text-xs">ws://localhost:8080</code>.
                         </p>
 
-                        <h3 className="text-lg font-semibold mb-3 text-white">Subscription Message</h3>
+                        <h3 className="text-base font-semibold text-text-primary mb-3">Subscription Message</h3>
                         <CodeBlock
                             language="json"
                             code={`{
@@ -159,8 +200,8 @@ export const Documentation = () => {
 }`}
                         />
 
-                        <h3 className="text-lg font-semibold mb-3 mt-8 text-white">Heartbeat Protocol</h3>
-                        <p className="text-white/60 text-sm mb-4">
+                        <h3 className="text-base font-semibold text-text-primary mb-3 mt-8">Heartbeat Protocol</h3>
+                        <p className="text-text-secondary text-sm mb-3">
                             Clients must send a ping frame every 30 seconds to maintain the connection.
                         </p>
                         <CodeBlock
@@ -171,7 +212,6 @@ setInterval(() => {
 }, 30000);`}
                         />
                     </section>
-
                 </main>
             </div>
         </div>

@@ -6,15 +6,11 @@ import { TelemetryChart } from '../components/dashboard/TelemetryChart';
 import { AlertPanel } from '../components/dashboard/AlertPanel';
 import { MachineStatusCards } from '../components/dashboard/MachineStatusCards';
 import { PageTransition } from '../components/layout/PageTransition';
-import { ShieldCheck, Wifi, WifiOff, Terminal } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { BentoGrid } from '../components/ui/bento-grid';
-import { BackgroundGradient } from '../components/ui/background-gradient';
-import { Card } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import { Spotlight } from '../components/ui/spotlight';
 import { useConnectionStatus } from '../hooks/useTelemetry';
+import { Wifi, WifiOff, ShieldCheck, Terminal } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 export const Dashboard = () => {
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -30,98 +26,84 @@ export const Dashboard = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-black text-white selection:bg-blue-500/30 font-sans overflow-hidden">
-            <Spotlight className="-top-40 left-0 md:left-60 md:-top-20 opacity-50" fill="white" />
-
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-[120px]" />
-                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[120px]" />
-            </div>
-
+        <div className="min-h-screen bg-background">
             <Navbar />
 
             <PageTransition>
-                <main className="relative z-10 pt-24 pb-12 px-6 max-w-[1600px] mx-auto space-y-8">
-
-                    {/* Header with Connection Status */}
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+                <main className="pt-24 pb-12 px-6 max-w-[1600px] mx-auto space-y-6">
+                    {/* Header */}
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
                         <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <h1 className="text-3xl font-bold tracking-tight text-white">System Overview</h1>
-                                <Badge variant="secondary" className="uppercase tracking-widest text-[10px]">
-                                    Operator View
-                                </Badge>
+                            <div className="flex items-center gap-3 mb-1">
+                                <h1 className="text-2xl font-bold tracking-tight text-text-primary">
+                                    System Overview
+                                </h1>
+                                <Badge>Operator View</Badge>
                             </div>
-                            <p className="text-white/40 text-sm max-w-lg">
+                            <p className="text-text-muted text-sm">
                                 Real-time telemetry monitoring and distributed anomaly detection.
                             </p>
                         </div>
 
-                        <Card className="flex items-center gap-6 px-4 py-2 bg-black/40 backdrop-blur-md border-white/10">
+                        <div className="flex items-center gap-4 bg-surface border border-border rounded-lg px-4 py-2.5">
                             <div className="flex items-center gap-2">
                                 {isConnected ? (
                                     <>
-                                        <span className="block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                        <span className="text-xs font-mono text-white/60">LIVE — KAFKA STREAM</span>
+                                        <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                                        <span className="text-xs font-medium text-success">LIVE — KAFKA STREAM</span>
                                     </>
                                 ) : (
                                     <>
-                                        <span className="block w-2 h-2 rounded-full bg-red-500" />
-                                        <span className="text-xs font-mono text-red-400">DISCONNECTED</span>
+                                        <span className="w-2 h-2 rounded-full bg-danger" />
+                                        <span className="text-xs font-medium text-danger">DISCONNECTED</span>
                                     </>
                                 )}
                             </div>
-                            <div className="w-[1px] h-4 bg-white/10" />
-                            <div className="flex items-center gap-2 text-xs text-white/40 font-mono">
+                            <div className="w-px h-4 bg-border" />
+                            <div className="flex items-center gap-1.5 text-xs text-text-muted">
                                 {isConnected ? (
-                                    <Wifi size={12} className="text-emerald-400" />
+                                    <Wifi size={12} className="text-success" />
                                 ) : (
-                                    <WifiOff size={12} className="text-red-400" />
+                                    <WifiOff size={12} className="text-danger" />
                                 )}
-                                <span className={isConnected ? 'text-emerald-400' : 'text-red-400'}>
+                                <span className={isConnected ? 'text-success' : 'text-danger'}>
                                     {isConnected ? 'WebSocket' : 'Reconnecting...'}
                                 </span>
                             </div>
-                            <div className="w-[1px] h-4 bg-white/10" />
-                            <div className="text-xs text-white/40 font-mono">
+                            <div className="w-px h-4 bg-border" />
+                            <span className="text-xs text-text-muted font-mono tabular-nums">
                                 {currentTime.toLocaleTimeString()}
-                            </div>
-                        </Card>
+                            </span>
+                        </div>
                     </div>
 
+                    {/* Stats */}
                     <MachineOverview />
 
-                    <BentoGrid className="max-w-none md:auto-rows-[450px]">
-                        <div className="md:col-span-2 row-span-1">
-                            <BackgroundGradient containerClassName="h-full" className="h-full bg-black p-0 rounded-[22px] overflow-hidden">
-                                <div className="h-full w-full p-1 bg-black rounded-[20px]">
-                                    <TelemetryChart />
-                                </div>
-                            </BackgroundGradient>
+                    {/* Chart + Alerts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                        <div className="lg:col-span-2 min-h-[450px]">
+                            <TelemetryChart />
                         </div>
-
-                        <div className="md:col-span-1 row-span-1">
-                            <BackgroundGradient containerClassName="h-full" className="h-full bg-black p-0 rounded-[22px] overflow-hidden">
-                                <div className="h-full w-full p-1 bg-black rounded-[20px]">
-                                    <AlertPanel />
-                                </div>
-                            </BackgroundGradient>
+                        <div className="min-h-[450px]">
+                            <AlertPanel />
                         </div>
-                    </BentoGrid>
+                    </div>
 
+                    {/* Machine Fleet */}
                     <motion.section
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="pt-6"
+                        transition={{ delay: 0.15 }}
+                        className="pt-4"
                     >
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                <ShieldCheck size={16} className="text-blue-400" />
+                        <div className="flex items-center gap-4 mb-5">
+                            <div className="p-2 bg-accent-light rounded-lg">
+                                <ShieldCheck size={16} className="text-accent" />
                             </div>
-                            <h2 className="text-lg font-semibold text-white">Machine Fleet Status</h2>
-                            <div className="h-[1px] flex-1 bg-gradient-to-r from-white/10 to-transparent" />
-                            <Button variant="outline" size="sm" className="gap-2">
+                            <h2 className="text-lg font-semibold text-text-primary">Machine Fleet Status</h2>
+                            <div className="h-px flex-1 bg-border" />
+                            <Button variant="secondary" size="sm">
                                 <Terminal size={14} />
                                 Export Log
                             </Button>

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { GlowButton } from '../ui/GlowButton';
-import { motion } from 'framer-motion';
+import { Button } from '../ui/Button';
+import { Loader2 } from 'lucide-react';
 
 export const LoginForm = () => {
-    const [email, setEmail] = useState('admin@alerion.ai');
-    const [password, setPassword] = useState('password123');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const { login } = useAuth();
@@ -17,67 +17,62 @@ export const LoginForm = () => {
         setError('');
         setIsLoading(true);
 
-        try {
-            const success = await login(email, password);
-            if (success) {
-                navigate('/app');
-            } else {
-                setError('Invalid credentials');
-            }
-        } catch (err) {
-            setError('An error occurred');
-        } finally {
-            setIsLoading(false);
+        const success = await login(email, password);
+        setIsLoading(false);
+
+        if (success) {
+            navigate('/app');
+        } else {
+            setError('Invalid credentials. Please try again.');
         }
     };
 
     return (
-        <motion.form
-            onSubmit={handleSubmit}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="space-y-6 w-full max-w-sm"
-        >
+        <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-                <label className="text-sm font-medium text-white/70">Email</label>
+                <label className="text-sm font-medium text-text-primary">Email</label>
                 <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all"
-                    placeholder="name@company.com"
+                    className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors"
+                    placeholder="admin@alerion.ai"
+                    required
                 />
             </div>
 
             <div className="space-y-2">
-                <label className="text-sm font-medium text-white/70">Password</label>
+                <label className="text-sm font-medium text-text-primary">Password</label>
                 <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all"
+                    className="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-colors"
                     placeholder="••••••••"
+                    required
                 />
             </div>
 
             {error && (
-                <motion.p
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="text-red-400 text-sm"
-                >
+                <p className="text-sm text-danger bg-danger-light border border-red-200 rounded-lg px-4 py-2">
                     {error}
-                </motion.p>
+                </p>
             )}
 
-            <GlowButton type="submit" isLoading={isLoading} className="w-full">
-                Sign In
-            </GlowButton>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                    <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Signing in...
+                    </>
+                ) : (
+                    'Sign In'
+                )}
+            </Button>
 
-            <div className="text-center text-xs text-white/30">
-                Use admin@alerion.ai / password123
-            </div>
-        </motion.form>
+            <p className="text-center text-xs text-text-muted mt-4">
+                Demo: admin@alerion.ai / password123
+            </p>
+        </form>
     );
 };
