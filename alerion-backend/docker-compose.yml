@@ -104,6 +104,23 @@ services:
       - alerion-net
     restart: unless-stopped
 
+  # ─── MongoDB (User Authentication Store) ─────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: alerion-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - alerion-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # ─── Node.js Backend (WebSocket + Consumers) ────────────────
   backend:
     build:
@@ -122,8 +139,13 @@ services:
       USE_MOCK_ML: "false"  # Python service handles ML
       MACHINE_DATA_TOPIC: "machine-data"
       PREDICTION_DATA_TOPIC: "prediction-data"
+      MONGODB_URI: "mongodb://mongodb:27017/alerion"
+      JWT_SECRET: "alerion-production-secret-change-me"
+      JWT_EXPIRES_IN: "7d"
     depends_on:
       kafka:
+        condition: service_healthy
+      mongodb:
         condition: service_healthy
     networks:
       - alerion-net
@@ -133,6 +155,8 @@ services:
 
 volumes:
   kafka_data:
+    driver: local
+  mongo_data:
     driver: local
 
 networks:

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { Shield, ChevronRight } from 'lucide-react';
+import { Shield, ChevronRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const SignUp = () => {
@@ -14,10 +15,45 @@ export const SignUp = () => {
         password: '',
         confirmPassword: '',
     });
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const { signup } = useAuth();
+    const navigate = useNavigate();
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Form submitted:', formData);
+        setError('');
+
+        if (formData.password !== formData.confirmPassword) {
+            setError('Passwords do not match.');
+            return;
+        }
+
+        if (formData.password.length < 6) {
+            setError('Password must be at least 6 characters.');
+            return;
+        }
+
+        if (!formData.role) {
+            setError('Please select a role.');
+            return;
+        }
+
+        setIsLoading(true);
+        const result = await signup({
+            name: formData.name,
+            email: formData.email,
+            company: formData.company,
+            role: formData.role,
+            password: formData.password,
+        });
+        setIsLoading(false);
+
+        if (result.success) {
+            navigate('/app');
+        } else {
+            setError(result.error || 'Signup failed. Please try again.');
+        }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -81,6 +117,7 @@ export const SignUp = () => {
                                             onChange={handleChange}
                                             className={inputClass}
                                             placeholder="John Doe"
+                                            required
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -90,6 +127,7 @@ export const SignUp = () => {
                                             value={formData.role}
                                             onChange={handleChange}
                                             className={inputClass}
+                                            required
                                         >
                                             <option value="" disabled>Select Role</option>
                                             <option value="engineer">Engineer</option>
@@ -108,6 +146,7 @@ export const SignUp = () => {
                                         onChange={handleChange}
                                         className={inputClass}
                                         placeholder="name@company.com"
+                                        required
                                     />
                                 </div>
 
@@ -119,6 +158,7 @@ export const SignUp = () => {
                                         onChange={handleChange}
                                         className={inputClass}
                                         placeholder="Acme Industries"
+                                        required
                                     />
                                 </div>
 
@@ -132,6 +172,7 @@ export const SignUp = () => {
                                             onChange={handleChange}
                                             className={inputClass}
                                             placeholder="••••••••"
+                                            required
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -143,13 +184,29 @@ export const SignUp = () => {
                                             onChange={handleChange}
                                             className={inputClass}
                                             placeholder="••••••••"
+                                            required
                                         />
                                     </div>
                                 </div>
 
+                                {error && (
+                                    <p className="text-sm text-danger bg-danger-light border border-red-200 rounded-lg px-4 py-2">
+                                        {error}
+                                    </p>
+                                )}
+
                                 <div className="pt-2">
-                                    <Button type="submit" className="w-full">
-                                        Create Account <ChevronRight size={16} />
+                                    <Button type="submit" className="w-full" disabled={isLoading}>
+                                        {isLoading ? (
+                                            <>
+                                                <Loader2 size={16} className="animate-spin" />
+                                                Creating account...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Create Account <ChevronRight size={16} />
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
 

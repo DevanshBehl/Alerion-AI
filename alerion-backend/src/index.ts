@@ -20,10 +20,13 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
+import cors from 'cors';
 import { startWSServer, broadcastPrediction, stopWSServer, getWSStats } from './websocket/wsServer.js';
 import { startPredictionConsumer, stopPredictionConsumer } from './consumers/predictionConsumer.js';
 import { startMLConsumer, stopMLConsumer } from './consumers/mlConsumer.js';
 import { createKafkaClient, ensureTopics } from './config/kafka.js';
+import { connectDB, disconnectDB } from './config/database.js';
+import authRoutes from './routes/auth.js';
 
 // ─────────────────────────────────────────────────────────────
 // Configuration
@@ -38,6 +41,7 @@ const USE_MOCK_ML = process.env.USE_MOCK_ML === 'true';
 // ─────────────────────────────────────────────────────────────
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 /** Health check — used by Docker, Kubernetes, load balancers */
@@ -65,6 +69,9 @@ app.get('/ready', (_req, res) => {
     res.json({ ready: true });
 });
 
+/** Auth routes */
+app.use('/api/auth', authRoutes);
+
 // ─────────────────────────────────────────────────────────────
 // Startup Sequence
 // ─────────────────────────────────────────────────────────────
@@ -76,32 +83,42 @@ async function main(): Promise<void> {
     console.log('╚══════════════════════════════════════════════════╝\n');
 
     try {
-        // 0. Ensure Kafka topics exist before consumers start
-        console.log('[Startup]   Ensuring Kafka topics exist...');
-        const adminKafka = createKafkaClient('admin');
-        await ensureTopics(adminKafka);
+        // 0. Connect to MongoDB
+        console.log('[Startup]   Connecting to MongoDB...');
+        await connectDB();
 
-        // 1. Start Express health server
+        // 1. Start Express server (auth routes available immediately)
         const httpServer = app.listen(HTTP_PORT, '0.0.0.0', () => {
             console.log(`[HTTP]      Health server → http://0.0.0.0:${HTTP_PORT}/health`);
+            console.log(`[HTTP]      Auth API      → http://0.0.0.0:${HTTP_PORT}/api/auth`);
             console.log(`[HTTP]      Stats endpoint → http://0.0.0.0:${HTTP_PORT}/stats`);
         });
 
-        // 2. Start WebSocket server
-        startWSServer(WS_PORT);
+        // 2. Start Kafka + WebSocket services (non-blocking for auth)
+        try {
+            console.log('[Startup]   Ensuring Kafka topics exist...');
+            const adminKafka = createKafkaClient('admin');
+            await ensureTopics(adminKafka);
 
-        // 3. Start prediction consumer (Kafka → WebSocket bridge)
-        console.log('[Startup]   Starting prediction consumer...');
-        await startPredictionConsumer(broadcastPrediction);
-        console.log('[Startup]   ✅ Prediction consumer ready');
+            // 3. Start WebSocket server
+            startWSServer(WS_PORT);
 
-        // 4. Optionally start mock ML consumer
-        if (USE_MOCK_ML) {
-            console.log('[Startup]   Starting mock ML consumer (USE_MOCK_ML=true)...');
-            await startMLConsumer();
-            console.log('[Startup]   ✅ Mock ML consumer ready');
-        } else {
-            console.log('[Startup]   ⏭  Mock ML disabled — expecting Python ML service');
+            // 4. Start prediction consumer (Kafka → WebSocket bridge)
+            console.log('[Startup]   Starting prediction consumer...');
+            await startPredictionConsumer(broadcastPrediction);
+            console.log('[Startup]   ✅ Prediction consumer ready');
+
+            // 5. Optionally start mock ML consumer
+            if (USE_MOCK_ML) {
+                console.log('[Startup]   Starting mock ML consumer (USE_MOCK_ML=true)...');
+                await startMLConsumer();
+                console.log('[Startup]   ✅ Mock ML consumer ready');
+            } else {
+                console.log('[Startup]   ⏭  Mock ML disabled — expecting Python ML service');
+            }
+        } catch (kafkaErr) {
+            console.warn('[Startup]   ⚠️  Kafka/WebSocket services failed to start — auth API still available');
+            console.warn('[Startup]   ', kafkaErr instanceof Error ? kafkaErr.message : kafkaErr);
         }
 
         console.log('\n[Startup]   ═══════════════════════════════════');
@@ -126,6 +143,9 @@ async function main(): Promise<void> {
 
             console.log('[Shutdown] Stopping HTTP server...');
             httpServer.close();
+
+            console.log('[Shutdown] Disconnecting MongoDB...');
+            await disconnectDB();
 
             console.log('[Shutdown] ✅ Graceful shutdown complete');
             process.exit(0);
