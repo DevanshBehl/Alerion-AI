@@ -95,13 +95,52 @@ export async function startEdgeNode(
         const driftCycle = Math.sin(tickCount / 200) * 5;
         const varianceFactor = config.varianceFactor || 1.0;
 
-        // Occasional spike (2% chance) to simulate anomalous conditions
-        const spikeMultiplier = Math.random() < 0.02 ? 1.5 : 1.0;
+        // ─── Anomaly Injection ─────────────────────────────────────
+        // ~15% of readings simulate a fault condition that the predictor
+        // will classify as a failure. Rotates between 4 fault types.
+        const faultRoll = Math.random();
+        const faultMode = Math.floor(tickCount / 60) % 4; // Rotate fault type every 60 ticks
+        let anomalyOverrides: Partial<MachineData> = {};
+
+        if (faultRoll < 0.15) {
+            switch (faultMode) {
+                case 0:
+                    // Tool Wear Failure: high wear + high torque
+                    anomalyOverrides = {
+                        tool_wear: Math.round(190 + Math.random() * 60),    // 190–250
+                        torque: Number((65 + Math.random() * 15).toFixed(2)), // 65–80 Nm
+                    };
+                    break;
+                case 1:
+                    // Heat Dissipation Failure: large temp differential (>50K)
+                    anomalyOverrides = {
+                        air_temperature: Number((290 + Math.random() * 5).toFixed(2)),   // 290–295 K
+                        process_temperature: Number((345 + Math.random() * 10).toFixed(2)), // 345–355 K
+                    };
+                    break;
+                case 2:
+                    // Overstrain Failure: extreme torque with high wear
+                    anomalyOverrides = {
+                        torque: Number((72 + Math.random() * 8).toFixed(2)),  // 72–80 Nm
+                        tool_wear: Math.round(160 + Math.random() * 90),      // 160–250
+                    };
+                    break;
+                case 3:
+                    // Power Failure: very high RPM
+                    anomalyOverrides = {
+                        rotational_speed: Math.round(2850 + Math.random() * 150), // 2850–3000
+                    };
+                    break;
+            }
+        }
+
+        // Occasional extra spike (5% chance) for moderate anomalies
+        const spikeMultiplier = Math.random() < 0.05 ? 1.8 : 1.0;
 
         const data: MachineData = {
             machine_id: config.machineId,
             machine_type: config.machineType,
-            air_temperature: Number(
+            air_temperature: anomalyOverrides.air_temperature ?? Number(
                 generateSensorValue(
                     bounds.airTemperature.min,
                     bounds.airTemperature.max,
@@ -109,7 +148,7 @@ export async function startEdgeNode(
                     driftCycle,
                 ).toFixed(2),
             ),
-            process_temperature: Number(
+            process_temperature: anomalyOverrides.process_temperature ?? Number(
                 generateSensorValue(
                     bounds.processTemperature.min,
                     bounds.processTemperature.max,
@@ -117,14 +156,14 @@ export async function startEdgeNode(
                     driftCycle * 1.2,
                 ).toFixed(2),
             ),
-            rotational_speed: Math.round(
+            rotational_speed: anomalyOverrides.rotational_speed ?? Math.round(
                 generateSensorValue(
                     bounds.rotationalSpeed.min,
                     bounds.rotationalSpeed.max,
                     varianceFactor * spikeMultiplier,
                 ),
             ),
-            torque: Number(
+            torque: anomalyOverrides.torque ?? Number(
                 (
                     generateSensorValue(
                         bounds.torque.min,
@@ -133,7 +172,7 @@ export async function startEdgeNode(
                     )
                 ).toFixed(2),
             ),
-            tool_wear: Math.round(
+            tool_wear: anomalyOverrides.tool_wear ?? Math.round(
                 clamp(toolWearAccumulator, bounds.toolWear.min, bounds.toolWear.max),
             ),
             timestamp: new Date().toISOString(),
