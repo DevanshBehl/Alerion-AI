@@ -305,9 +305,34 @@ docker ps | grep kafka
 
 > **Note:** Wait ~15 seconds after starting for Kafka to fully initialize before starting the backend.
 
-### Step 4 — Start the Backend (Terminal 2)
+### Step 4 — Start the ML Service (Terminal 2)
 
-Open a **new terminal**. The backend connects to MongoDB Atlas, Kafka, and serves the Auth API + WebSocket server.
+Open a **new terminal**. The Flask ML service loads the trained anomaly detection model and exposes a prediction REST API.
+
+```bash
+cd ml
+
+# Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate    # macOS/Linux
+# .venv\Scripts\activate     # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the Flask API
+python app.py
+```
+
+**Expected output:**
+```text
+API starting on http://localhost:5000
+   Endpoints: /health  /predict  /predict/batch  /classes  /metadata
+```
+
+### Step 5 — Start the Backend (Terminal 3)
+
+Open a **new terminal**. The backend connects to MongoDB Atlas, Kafka, and the ML Service, then serves the Auth API + WebSocket server.
 
 ```bash
 cd alerion-backend
@@ -324,6 +349,8 @@ cp .env.example .env
 MONGODB_URI="mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/alerionAI"
 JWT_SECRET="your-secret-key"
 JWT_EXPIRES_IN=7d
+ML_SERVICE_URL=http://localhost:5000
+USE_MOCK_ML=false
 ```
 
 Then start the server:
@@ -339,11 +366,11 @@ npm run dev
 [HTTP]      Auth API      → http://0.0.0.0:3000/api/auth
 [WebSocket] Server started on ws://0.0.0.0:8080
 [Startup]   ✅ Prediction consumer ready
-[Startup]   ✅ Mock ML consumer ready
+[Startup]   ✅ ML consumer ready (using Python Flask API via HTTP)
 [Startup]   🚀 All services started successfully
 ```
 
-### Step 5 — Start Edge Node Simulators (Terminal 3)
+### Step 6 — Start Edge Node Simulators (Terminal 4)
 
 Open a **new terminal**. Edge nodes simulate 5 industrial machines that send sensor telemetry into Kafka.
 
@@ -363,7 +390,7 @@ npm run start:edges
 
 You can also start individual nodes: `npm run start:edge1`, `start:edge2`, ..., `start:edge5`
 
-### Step 6 — Start the Dashboard (Terminal 4)
+### Step 7 — Start the Dashboard (Terminal 5)
 
 Open a **new terminal**. The React dashboard displays real-time machine monitoring and anomaly alerts.
 
@@ -383,7 +410,7 @@ VITE ready in 200ms
 ➜  Local:   http://localhost:5173/
 ```
 
-### Step 7 — Test It
+### Step 8 — Test It
 
 1. Open **http://localhost:5173/signup** in your browser
 2. Create an account (name, email, company, role, password)
@@ -396,9 +423,10 @@ VITE ready in 200ms
 ## Stopping the Project
 
 ```bash
-# Stop edge nodes: Ctrl+C in Terminal 3
-# Stop backend:    Ctrl+C in Terminal 2
-# Stop frontend:   Ctrl+C in Terminal 4
+# Stop edge nodes: Ctrl+C in Terminal 4
+# Stop backend:    Ctrl+C in Terminal 3
+# Stop ML service: Ctrl+C in Terminal 2
+# Stop frontend:   Ctrl+C in Terminal 5
 
 # Stop Kafka:
 cd infrastructure/kafka
@@ -415,9 +443,10 @@ docker compose down -v
 | Step | Terminal | Directory | Command | What It Starts |
 |:----:|:---------|:----------|:--------|:---------------|
 | 1 | Terminal 1 | `infrastructure/kafka` | `docker compose up -d` | Kafka broker (port 9092) |
-| 2 | Terminal 2 | `alerion-backend` | `npm run dev` | Backend API (3000) + WebSocket (8080) |
-| 3 | Terminal 3 | `alerion-backend` | `npm run start:edges` | 5 edge node simulators |
-| 4 | Terminal 4 | `AlerionAI` | `npm run dev` | React dashboard (5173) |
+| 2 | Terminal 2 | `ml` | `python app.py` | Flask ML Service (port 5000) |
+| 3 | Terminal 3 | `alerion-backend` | `npm run dev` | Backend API (3000) + WebSocket (8080) |
+| 4 | Terminal 4 | `alerion-backend` | `npm run start:edges` | 5 edge node simulators |
+| 5 | Terminal 5 | `AlerionAI` | `npm run dev` | React dashboard (5173) |
 
 ---
 
@@ -694,8 +723,8 @@ docker exec -it alerion-kafka kafka-console-consumer \
 | `KAFKA_CLIENT_ID` | `alerion-backend` | Kafka client identifier |
 | `WS_PORT` | `8080` | WebSocket server port |
 | `HTTP_PORT` | `3000` | Express health server port |
-| `ML_SERVICE_URL` | `http://localhost:8000` | Python ML service URL |
-| `USE_MOCK_ML` | `true` | Use TypeScript mock ML (set `false` for Python service) |
+| `ML_SERVICE_URL` | `http://localhost:5000` | Python Flask ML service URL |
+| `USE_MOCK_ML` | `false` | Use TypeScript mock ML (set `false` for Python service) |
 | `MACHINE_DATA_TOPIC` | `machine-data` | Topic for raw telemetry |
 | `PREDICTION_DATA_TOPIC` | `prediction-data` | Topic for ML predictions |
 
