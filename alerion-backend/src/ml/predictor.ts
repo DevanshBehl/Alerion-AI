@@ -24,11 +24,43 @@
 
 import type { MachineData, PredictionResult, FailureType } from '../types/machine.types.js';
 
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5000';
+const USE_MOCK_ML = process.env.USE_MOCK_ML === 'true';
+
 /**
- * Mock ML prediction based on heuristic rules.
- * Mimics the behavior of the trained Python model.
+ * ML prediction: calls Python API if available, else falls back to mock rules.
  */
-export function predict(data: MachineData): Omit<PredictionResult, keyof MachineData | 'processed_at'> {
+export async function predict(data: MachineData): Promise<Omit<PredictionResult, keyof MachineData | 'processed_at'>> {
+    if (!USE_MOCK_ML) {
+        try {
+            const response = await fetch(`${ML_SERVICE_URL}/predict`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                
+                // Convert Flask API confidence (0-100) to (0-1)
+                let conf = result.confidence / 100;
+                
+                // Map to typescript expected types
+                return {
+                    prediction: result.is_failure ? 1 : 0,
+                    confidence: conf,
+                    anomalyScore: result.is_failure ? 0.5 + (conf / 2) : 0.5 - (conf / 2),
+                    failure_type: result.predicted_failure_type,
+                };
+            } else {
+                console.error(`[Predictor] Python API Error: ${response.status}`, await response.text());
+                // Fallback below
+            }
+        } catch (err) {
+            console.error(`[Predictor] Fetch Error using Flask API, falling back to mock:`, err);
+        }
+    }
+
     let anomalyScore = 0;
     let confidence = 0.85; // Base confidence for mock predictions
     let failure_type: FailureType = 'No Failure';

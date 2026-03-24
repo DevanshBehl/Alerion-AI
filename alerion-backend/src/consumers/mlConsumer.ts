@@ -61,8 +61,8 @@ export async function startMLConsumer(): Promise<void> {
             try {
                 const machineData: MachineData = JSON.parse(message.value.toString());
 
-                // Run mock ML prediction
-                const predictionOutput = predict(machineData);
+                // Run ML prediction (Mock or HTTP)
+                const predictionOutput = await predict(machineData);
 
                 // Build enriched prediction result
                 const result: PredictionResult = {

@@ -108,13 +108,13 @@ async function main(): Promise<void> {
             await startPredictionConsumer(broadcastPrediction);
             console.log('[Startup]   ✅ Prediction consumer ready');
 
-            // 5. Optionally start mock ML consumer
+            // 5. Start ML consumer (handles prediction either using Mock or HTTP call to Flask)
+            console.log('[Startup]   Starting ML consumer processor...');
+            await startMLConsumer();
             if (USE_MOCK_ML) {
-                console.log('[Startup]   Starting mock ML consumer (USE_MOCK_ML=true)...');
-                await startMLConsumer();
-                console.log('[Startup]   ✅ Mock ML consumer ready');
+                console.log('[Startup]   ✅ ML consumer ready (using Mock TS Predictor)');
             } else {
-                console.log('[Startup]   ⏭  Mock ML disabled — expecting Python ML service');
+                console.log('[Startup]   ✅ ML consumer ready (using Python Flask API via HTTP)');
             }
         } catch (kafkaErr) {
             console.warn('[Startup]   ⚠️  Kafka/WebSocket services failed to start — auth API still available');
@@ -129,11 +129,8 @@ async function main(): Promise<void> {
         const shutdown = async (signal: string) => {
             console.log(`\n[Shutdown] Received ${signal} — initiating graceful shutdown...`);
 
-            // Stop services in reverse order
-            if (USE_MOCK_ML) {
-                console.log('[Shutdown] Stopping ML consumer...');
-                await stopMLConsumer();
-            }
+            console.log('[Shutdown] Stopping ML consumer...');
+            await stopMLConsumer();
 
             console.log('[Shutdown] Stopping prediction consumer...');
             await stopPredictionConsumer();
