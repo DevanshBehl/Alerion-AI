@@ -61,79 +61,59 @@ export async function predict(data: MachineData): Promise<Omit<PredictionResult,
         }
     }
 
-    let anomalyScore = 0;
-    let confidence = 0.85; // Base confidence for mock predictions
-    let failure_type: FailureType = 'No Failure';
-
-    // ─── Feature Engineering (matches training pipeline) ───────
+    // ─── Mock predictor: rules matching real training data patterns ──
+    // These rules mirror what the trained Random Forest model learned.
 
     const tempDiff = data.process_temperature - data.air_temperature;
+    const torque_x_wear = data.torque * data.tool_wear;
     const powerMetric = data.torque * data.rotational_speed;
-    const wearRatio = data.tool_wear / 250; // Normalized 0–1
 
-    // ─── Rule-Based Scoring ────────────────────────────────────
+    let failure_type: FailureType = 'No Failure';
+    let confidence = 0.92;
+    let prediction: 0 | 1 = 0;
 
-    // 1. Tool Wear Failure: high tool_wear + high torque
-    if (data.tool_wear > 180 && data.torque > 60) {
-        anomalyScore += 0.4;
-        failure_type = 'Tool Wear Failure';
-        confidence = 0.92;
-    } else if (data.tool_wear > 200) {
-        anomalyScore += 0.25;
-        failure_type = 'Tool Wear Failure';
-        confidence = 0.88;
-    }
-
-    // 2. Heat Dissipation Failure: large temperature differential
-    if (tempDiff > 50) {
-        anomalyScore += 0.35;
-        failure_type = 'Heat Dissipation Failure';
-        confidence = 0.90;
-    } else if (tempDiff > 40) {
-        anomalyScore += 0.15;
-    }
-
-    // 3. Power Failure: very high rotational speed
-    if (data.rotational_speed > 2800) {
-        anomalyScore += 0.3;
+    // 1. Power Failure: very high RPM (>2300) with low torque (<15)
+    //    Training data: RPM up to 2861, torque as low as 4.6
+    if (data.rotational_speed > 2300 && data.torque < 15) {
         failure_type = 'Power Failure';
-        confidence = 0.87;
+        prediction = 1;
+        confidence = 0.93;
     }
-
-    // 4. Overstrain Failure: extreme torque with high wear
-    if (data.torque > 70 && wearRatio > 0.6) {
-        anomalyScore += 0.35;
+    // 2. Overstrain Failure: low RPM (<1400) + high torque (>50) + high wear (>200)
+    //    Training data: RPM 1181–1515, torque 46–68, wear 177–251
+    else if (data.rotational_speed < 1400 && data.torque > 50 && data.tool_wear > 200) {
         failure_type = 'Overstrain Failure';
+        prediction = 1;
         confidence = 0.91;
     }
-
-    // 5. Power metric anomaly (torque × speed out of normal range)
-    if (powerMetric > 150000 || powerMetric < 15000) {
-        anomalyScore += 0.2;
+    // 3. Tool Wear Failure: very high wear (>200) with normal RPM
+    //    Training data: wear 198–253
+    else if (data.tool_wear > 200 && data.rotational_speed >= 1400) {
+        failure_type = 'Tool Wear Failure';
+        prediction = 1;
+        confidence = 0.88;
     }
-
-    // 6. Random failure (small probability for edge cases)
-    if (Math.random() < 0.01) {
-        anomalyScore += 0.3;
+    // 4. Heat Dissipation Failure: low temp_diff (<8.6) + high air temp (>300) + low RPM (<1400)
+    //    Training data: temp_diff 7.6–8.6, air 300–304, RPM 1212–1379
+    else if (tempDiff < 8.7 && data.air_temperature > 300 && data.rotational_speed < 1400 && data.torque > 40) {
+        failure_type = 'Heat Dissipation Failure';
+        prediction = 1;
+        confidence = 0.90;
+    }
+    // 5. Random Failures: high torque×wear product with normal RPM
+    //    Training data: diverse patterns the model picks up
+    else if (torque_x_wear > 7000 && data.rotational_speed < 1500) {
         failure_type = 'Random Failures';
-        confidence = 0.65;
+        prediction = 1;
+        confidence = 0.70;
     }
 
-    // ─── Final Prediction ─────────────────────────────────────
+    // Compute anomaly score from detection
+    const anomalyScore = prediction === 1
+        ? Number((0.6 + Math.random() * 0.35).toFixed(4))
+        : Number((Math.random() * 0.3).toFixed(4));
 
-    // Normalize anomaly score to [0, 1]
-    anomalyScore = Math.min(anomalyScore, 1.0);
-    anomalyScore = Number(anomalyScore.toFixed(4));
-
-    // Threshold: anomalyScore > 0.5 → failure predicted
-    const prediction: 0 | 1 = anomalyScore > 0.5 ? 1 : 0;
-
-    // If no failure predicted, reset failure_type
-    if (prediction === 0) {
-        failure_type = 'No Failure';
-    }
-
-    // Add slight noise to confidence for realism
+    // Add slight noise to confidence
     confidence = Number((confidence + (Math.random() - 0.5) * 0.06).toFixed(4));
     confidence = Math.max(0, Math.min(1, confidence));
 

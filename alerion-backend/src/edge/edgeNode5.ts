@@ -9,6 +9,6 @@ import { startEdgeNode } from './edgeSimulator.js';
 startEdgeNode({
     machineId: 'MACHINE_005',
     machineType: 'M',
-    intervalMs: 500,
+    intervalMs: 10,
     varianceFactor: 0.8,
 });

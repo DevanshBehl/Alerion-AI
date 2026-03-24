@@ -9,7 +9,7 @@ export const AlertPanel = () => {
     const alerts = useLatestAlerts();
 
     return (
-        <Card className="h-full min-h-[400px] flex flex-col">
+        <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-3 mb-0 border-b border-border-light">
                 <CardTitle className="flex items-center gap-2 text-base">
                     <span className="relative flex h-2.5 w-2.5">

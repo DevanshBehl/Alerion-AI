@@ -313,15 +313,15 @@ Open a **new terminal**. The Flask ML service loads the trained anomaly detectio
 cd ml
 
 # Create and activate a virtual environment
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate    # macOS/Linux
 # .venv\Scripts\activate     # Windows
 
 # Install dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 
 # Start the Flask API
-python app.py
+python3 app.py
 ```
 
 **Expected output:**
@@ -443,7 +443,7 @@ docker compose down -v
 | Step | Terminal | Directory | Command | What It Starts |
 |:----:|:---------|:----------|:--------|:---------------|
 | 1 | Terminal 1 | `infrastructure/kafka` | `docker compose up -d` | Kafka broker (port 9092) |
-| 2 | Terminal 2 | `ml` | `python app.py` | Flask ML Service (port 5000) |
+| 2 | Terminal 2 | `ml` | `python3 app.py` | Flask ML Service (port 5000) |
 | 3 | Terminal 3 | `alerion-backend` | `npm run dev` | Backend API (3000) + WebSocket (8080) |
 | 4 | Terminal 4 | `alerion-backend` | `npm run start:edges` | 5 edge node simulators |
 | 5 | Terminal 5 | `AlerionAI` | `npm run dev` | React dashboard (5173) |
@@ -597,15 +597,15 @@ flowchart LR
 cd ml
 
 # Create virtual environment
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate    # macOS/Linux
 # .venv\Scripts\activate     # Windows
 
 # Install dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 
 # Start the Flask API
-python app.py
+python3 app.py
 # → API running at http://localhost:5000
 ```
 

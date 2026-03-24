@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import type { TelemetryState, Machine, TelemetryDataPoint, AnomalyAlert, TelemetryMetric } from '../types';
 import { TELEMETRY_CONFIG } from '../utils/constants';
 
+export interface PredictionStats {
+    totalRequests: number;
+    passedCount: number;
+    failedCount: number;
+    failureBreakdown: Record<string, number>;
+}
+
 interface TelemetryActions {
     setMachines: (machines: Machine[]) => void;
     updateMachineStatus: (machineId: string, status: Machine['status']) => void;
@@ -10,9 +17,10 @@ interface TelemetryActions {
     setSelectedMetric: (metric: TelemetryMetric) => void;
     setSelectedMachine: (machineId: string | null) => void;
     setConnected: (connected: boolean) => void;
+    getPredictionStats: () => PredictionStats;
 }
 
-export const useTelemetryStore = create<TelemetryState & TelemetryActions>((set) => ({
+export const useTelemetryStore = create<TelemetryState & TelemetryActions & { predictionStats: PredictionStats }>((set, get) => ({
     machines: [],
     telemetryData: [],
     alerts: [],
@@ -20,6 +28,12 @@ export const useTelemetryStore = create<TelemetryState & TelemetryActions>((set)
     selectedMachineId: null,
     bufferSize: TELEMETRY_CONFIG.BUFFER_SIZE,
     isConnected: false,
+    predictionStats: {
+        totalRequests: 0,
+        passedCount: 0,
+        failedCount: 0,
+        failureBreakdown: {},
+    },
 
     setMachines: (machines) => set({ machines }),
 
@@ -48,8 +62,23 @@ export const useTelemetryStore = create<TelemetryState & TelemetryActions>((set)
                 }
             }
 
+            // Update cumulative prediction stats
+            const stats = { ...state.predictionStats };
+            stats.totalRequests++;
+            if (point.prediction === 1) {
+                stats.failedCount++;
+                const ft = point.failure_type || 'Unknown';
+                if (ft !== 'No Failure') {
+                    stats.failureBreakdown = { ...stats.failureBreakdown };
+                    stats.failureBreakdown[ft] = (stats.failureBreakdown[ft] || 0) + 1;
+                }
+            } else {
+                stats.passedCount++;
+            }
+
             return {
                 telemetryData: [...newTelemetryData, point],
+                predictionStats: stats,
             };
         }),
 
@@ -63,4 +92,6 @@ export const useTelemetryStore = create<TelemetryState & TelemetryActions>((set)
     setSelectedMachine: (machineId) => set({ selectedMachineId: machineId }),
 
     setConnected: (isConnected) => set({ isConnected }),
+
+    getPredictionStats: () => get().predictionStats,
 }));

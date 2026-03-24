@@ -81,11 +81,11 @@ export const Dashboard = () => {
                     <MachineOverview />
 
                     {/* Chart + Alerts */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                        <div className="lg:col-span-2 min-h-[450px]">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5" style={{ height: '450px' }}>
+                        <div className="lg:col-span-2 h-full overflow-hidden">
                             <TelemetryChart />
                         </div>
-                        <div className="min-h-[450px]">
+                        <div className="h-full overflow-hidden">
                             <AlertPanel />
                         </div>
                     </div>

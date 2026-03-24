@@ -12,6 +12,7 @@ import { CHART_COLORS, METRIC_UNITS } from '../../utils/constants';
 import { Thermometer, Gauge, RotateCcw, Hammer, Cog, Activity } from 'lucide-react';
 import { Card } from '../ui/Card';
 import type { TelemetryMetric } from '../../types';
+import { MachineStatusChart } from './MachineStatusChart';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -50,14 +51,7 @@ export const TelemetryChart = () => {
     const chartColor = CHART_COLORS[selectedMetric] || '#4F46E5';
 
     if (!selectedMachineId) {
-        return (
-            <Card className="h-full min-h-[400px] flex items-center justify-center">
-                <div className="text-center">
-                    <Activity size={32} className="text-text-muted mx-auto mb-3 opacity-40" />
-                    <p className="text-text-muted text-sm">Select a machine to view telemetry</p>
-                </div>
-            </Card>
-        );
+        return <MachineStatusChart />;
     }
 
     return (

@@ -96,42 +96,37 @@ export async function startEdgeNode(
         const varianceFactor = config.varianceFactor || 1.0;
 
         // ─── Anomaly Injection ─────────────────────────────────────
-        // ~15% of readings simulate a fault condition that the predictor
-        // will classify as a failure. Rotates between 4 fault types.
-        const faultRoll = Math.random();
-        const faultMode = Math.floor(tickCount / 60) % 4; // Rotate fault type every 60 ticks
-        let anomalyOverrides: Partial<MachineData> = {};
+        // Uses REAL failure records from the training CSV (predictive_maintenance.csv).
+        // Every ~10 ticks, one of these known failure records is injected.
+        // The ML model was trained on these exact patterns, guaranteeing classification.
+        const KNOWN_FAILURES: Array<Partial<MachineData>> = [
+            // ── Power Failure (3 records) ──
+            { air_temperature: 298.9, process_temperature: 309.1, rotational_speed: 2861, torque: 4.6,  tool_wear: 143 },
+            { air_temperature: 301.8, process_temperature: 310.1, rotational_speed: 2372, torque: 13.9, tool_wear: 205 },
+            { air_temperature: 298.6, process_temperature: 308.2, rotational_speed: 1361, torque: 68.2, tool_wear: 172 },
+            // ── Tool Wear Failure (3 records) ──
+            { air_temperature: 298.8, process_temperature: 308.9, rotational_speed: 1455, torque: 41.3, tool_wear: 208 },
+            { air_temperature: 303.9, process_temperature: 313.2, rotational_speed: 1422, torque: 48.0, tool_wear: 215 },
+            { air_temperature: 298.6, process_temperature: 309.8, rotational_speed: 2271, torque: 16.2, tool_wear: 218 },
+            // ── Overstrain Failure (3 records) ──
+            { air_temperature: 298.4, process_temperature: 308.2, rotational_speed: 1282, torque: 60.7, tool_wear: 216 },
+            { air_temperature: 303.8, process_temperature: 313.1, rotational_speed: 1256, torque: 58.7, tool_wear: 213 },
+            { air_temperature: 298.3, process_temperature: 309.3, rotational_speed: 1337, torque: 56.1, tool_wear: 206 },
+            // ── Random Failures (3 records) ──
+            { air_temperature: 297.0, process_temperature: 308.3, rotational_speed: 1399, torque: 46.4, tool_wear: 132 },
+            { air_temperature: 302.9, process_temperature: 312.5, rotational_speed: 1357, torque: 55.0, tool_wear: 12  },
+            { air_temperature: 300.4, process_temperature: 311.9, rotational_speed: 1438, torque: 46.7, tool_wear: 41  },
+            // ── Heat Dissipation Failure (3 records) ──
+            { air_temperature: 300.8, process_temperature: 309.4, rotational_speed: 1342, torque: 62.4, tool_wear: 113 },
+            { air_temperature: 302.4, process_temperature: 310.1, rotational_speed: 1379, torque: 48.9, tool_wear: 107 },
+            { air_temperature: 303.7, process_temperature: 312.1, rotational_speed: 1363, torque: 51.8, tool_wear: 90  },
+        ];
 
-        if (faultRoll < 0.15) {
-            switch (faultMode) {
-                case 0:
-                    // Tool Wear Failure: high wear + high torque
-                    anomalyOverrides = {
-                        tool_wear: Math.round(190 + Math.random() * 60),    // 190–250
-                        torque: Number((65 + Math.random() * 15).toFixed(2)), // 65–80 Nm
-                    };
-                    break;
-                case 1:
-                    // Heat Dissipation Failure: large temp differential (>50K)
-                    anomalyOverrides = {
-                        air_temperature: Number((290 + Math.random() * 5).toFixed(2)),   // 290–295 K
-                        process_temperature: Number((345 + Math.random() * 10).toFixed(2)), // 345–355 K
-                    };
-                    break;
-                case 2:
-                    // Overstrain Failure: extreme torque with high wear
-                    anomalyOverrides = {
-                        torque: Number((72 + Math.random() * 8).toFixed(2)),  // 72–80 Nm
-                        tool_wear: Math.round(160 + Math.random() * 90),      // 160–250
-                    };
-                    break;
-                case 3:
-                    // Power Failure: very high RPM
-                    anomalyOverrides = {
-                        rotational_speed: Math.round(2850 + Math.random() * 150), // 2850–3000
-                    };
-                    break;
-            }
+        // Inject a known failure every ~10 ticks (so roughly 1 in 10 readings is a failure)
+        let anomalyOverrides: Partial<MachineData> = {};
+        if (tickCount % 10 === 0 && tickCount > 0) {
+            const failureRecord = KNOWN_FAILURES[tickCount % KNOWN_FAILURES.length];
+            anomalyOverrides = { ...failureRecord };
         }
 
         // Occasional extra spike (5% chance) for moderate anomalies
